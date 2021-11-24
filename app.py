@@ -102,29 +102,21 @@ def get_data():
 
 @app.route("/data", methods=['GET', 'POST'])
 def default_page():
-    if request.method == 'GET':
-        login_page()
-    if request.method == 'POST':
-        if request.form['password'] == 'password':
-            global logged_in
-            logged_in = True
-            df_form = get_data()
-            return process_data(df_form)
-        else:
-            return "wrong password"
+    if request.form['password'] == os.getenv("PASSWORD"):
+        global logged_in
+        logged_in = True
+        df_form = get_data()
+        return process_data(df_form)
 
 
 @app.route("/dataupdate", methods=['GET', 'POST'])
 def update_rescue():
-    if request.method == 'GET':
-        login_page()
-    if request.method == 'POST':
-        global logged_in
-        if logged_in:
-            df_form = get_data()
-            return process_data(df_form, request.form['rescue'])
-        else:
-            return login_page()
+    global logged_in
+    if logged_in:
+        df_form = get_data()
+        return process_data(df_form, request.form['rescue'])
+    else:
+        return login_page()
 
 
 @app.route("/download", methods=['GET', 'POST'])
