@@ -46,13 +46,13 @@ def process_data(df_form, rescue_number=None):
     unacc_minors_male = len(df_unacc_minors[df_unacc_minors['gender'] == 'male'])
     unacc_minors_female = len(df_unacc_minors[df_unacc_minors['gender'] == 'female'])
     unacc_pregnant_minors = len(df_unacc_minors[(df_unacc_minors['gender'] == 'female') &
-                                                (df_unacc_minors['pregnant_breastfeeding'] == 'yes')])
+                                                (df_unacc_minors['pregnant'] == 'yes')])
 
     # unaccompanied women
     df_women = df_adults[df_adults['gender'] == 'female']
     df_unacc_women = df_women[df_women['accompanied'] == 'no']
     unacc_women = len(df_unacc_women)
-    unacc_pregnant_women = len(df_unacc_women[df_unacc_women['pregnant_breastfeeding'] == 'yes'])
+    unacc_pregnant_women = len(df_unacc_women[df_unacc_women['pregnant'] == 'yes'])
 
     age_value_counts = df_form['age'].value_counts().to_dict()
     age_label_dict = {"u1": "Less than 1 year",
@@ -98,7 +98,7 @@ def get_data():
         df_form = pd.DataFrame(data['results'])
     else:
         df_form = pd.DataFrame(columns=['rescue_number', 'gender', 'age', 'accompanied',
-                                        'accompanied_by_who', 'pregnant_breastfeeding', 'country'])
+                                        'accompanied_by_who', 'pregnant', 'country'])
     return df_form
 
 
