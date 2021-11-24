@@ -39,20 +39,27 @@ def process_data(df_form, rescue_number=None):
 
     # unaccompanied minors
     df_unacc_minors = df_minors[df_minors['accompanied'] == 'no']
-    df_unacc_minors = df_unacc_minors.append(df_minors[(df_minors['accompanied'] == 'yes') &
-                                                       (df_minors['accompanied_by_who'] != 'parent')],
-                                             ignore_index=True)
+    if 'accompanied_by_who' in df_minors.columns:
+        df_unacc_minors = df_unacc_minors.append(df_minors[(df_minors['accompanied'] == 'yes') &
+                                                           (df_minors['accompanied_by_who'] != 'parent')],
+                                                 ignore_index=True)
     unacc_minors = len(df_unacc_minors)
     unacc_minors_male = len(df_unacc_minors[df_unacc_minors['gender'] == 'male'])
     unacc_minors_female = len(df_unacc_minors[df_unacc_minors['gender'] == 'female'])
-    unacc_pregnant_minors = len(df_unacc_minors[(df_unacc_minors['gender'] == 'female') &
-                                                (df_unacc_minors['pregnant'] == 'yes')])
+    if 'pregnant' in df_unacc_minors.columns:
+        unacc_pregnant_minors = len(df_unacc_minors[(df_unacc_minors['gender'] == 'female') &
+                                                    (df_unacc_minors['pregnant'] == 'yes')])
+    else:
+        unacc_pregnant_minors = 0
 
     # unaccompanied women
     df_women = df_adults[df_adults['gender'] == 'female']
     df_unacc_women = df_women[df_women['accompanied'] == 'no']
     unacc_women = len(df_unacc_women)
-    unacc_pregnant_women = len(df_unacc_women[df_unacc_women['pregnant'] == 'yes'])
+    if 'pregnant' in df_unacc_women.columns:
+        unacc_pregnant_women = len(df_unacc_women[df_unacc_women['pregnant'] == 'yes'])
+    else:
+        unacc_pregnant_women = 0
 
     age_value_counts = df_form['age'].value_counts().to_dict()
     age_label_dict = {"u1": "Less than 1 year",
