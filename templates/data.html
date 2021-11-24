@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
+  <title>Ocean Viking Rescues</title>
+</head>
+<body>
+    <div class="container p-5 has-text-centered">
+      <div class="columns is-centered">
+        <div class="column is-one-quarter-desktop">
+          <div class="field my-5">
+            <label for="" class="label">rotation number 16</label>
+          </div>
+          <form action= "/dataupdate" method="POST">
+            <label for="" class="label">select rescue number</label>
+            <select name='rescue'>
+              {% for rescue in rescues %}
+                {% if selected_rescue == rescue %}
+                    <option value="{{ rescue }}" selected='selected'>{{ rescue }}</option>
+                {% else %}
+                     <option value="{{ rescue }}" >{{ rescue }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            <input type="submit" value="Submit" />
+          </form>
+        </div>
+      </div>
+    </div>
+    <div class="container p-5 has-text-centered">
+      <div class="columns is-centered">
+        <div class="column is-one-third-desktop">
+          <div class="block my-3">
+            <label for="" class="label">people rescued {{ total }} ({{ males }} male, {{ females }} female),</label>
+            <label for="" class="label">of which {{ minors }} minors ({{ minors_male }} male, {{ minors_female }} female)</label>
+          </div>
+        </div>
+      </div>
+      <div class="columns is-centered">
+        <div class="column is-one-third-desktop">
+          <div class="block my-3">
+              <label for="" class="label">unaccompanied minors {{ unacc_minors }} ({{ unacc_minors_male }} male, {{ unacc_minors_female }} female)</label>
+              <label for="" class="label">of which {{ unacc_pregnant_minors }} pregnant or lactating</label>
+          </div>
+        </div>
+      </div>
+      <div class="columns is-centered">
+        <div class="column is-one-third-desktop">
+          <div class="block my-3">
+              <label for="" class="label">unaccompanied adult women {{ unacc_women }} </label>
+              <label for="" class="label">of which {{ unacc_pregnant_women }} pregnant or lactating</label>
+          </div>
+        </div>
+      </div>
+      <div class="columns is-centered">
+        <div class="column is-one-quarter-desktop">
+          <div class="block my-3">
+            <label for="" class="label">age of pepople rescued:</label>
+              {% for age_group, age_count in age_value_counts.items() %}
+                <label for="" class="label">{{ age_group }} : {{ age_count }}</label>
+              {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="columns is-centered">
+        <div class="column is-one-quarter-desktop">
+          <div class="block my-3">
+            <label for="" class="label">country of pepople rescued:</label>
+              {% for country, country_count in country_counts.items() %}
+                <label for="" class="label">{{ country }} : {{ country_count }}</label>
+              {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="container p-5 has-text-centered">
+      <div class="columns is-centered">
+        <div class="column is-one-quarter-desktop">
+          <div class="block my-3">
+            <a class="button is-link" href="/download">download data (.xlsx)</a>
+          </div>
+        </div>
+      </div>
+    </div>
+</body>
+</html>
