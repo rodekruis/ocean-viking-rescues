@@ -4,10 +4,10 @@ from collections import OrderedDict
 import io
 import os
 from dotenv import load_dotenv
+from azure.storage.blob import BlobServiceClient
 from flask import Flask, render_template, request, send_file
 app = Flask(__name__)
 load_dotenv()  # take environment variables from .env
-global logged_in
 logged_in = False
 
 
@@ -21,8 +21,10 @@ def process_data(df_form, rescue_number=None):
     if rescue_number != 'total':
         df_form = df_form[df_form['rescue_number'] == rescue_number]
 
-    # save locally, in case you want to download
-    df_form.to_excel("rescue_data.xlsx")
+    if os.path.exists('rescue-data-upload.xlsx'):
+        os.remove('rescue-data-upload.xlsx')
+    df_form.to_excel('rescue-data-upload.xlsx')
+    upload_data('rescue-data-upload.xlsx', 'website-data/rescue-data.xlsx')
 
     total = len(df_form)
     males = len(df_form[df_form['gender'] == 'male'])
@@ -119,14 +121,25 @@ def update_rescue():
         return login_page()
 
 
-@app.route("/download", methods=['GET', 'POST'])
-def download_data():
-    myio = io.BytesIO()
-    with open("rescue_data.xlsx", 'rb') as f:
-        data = f.read()
-    myio.write(data)
-    myio.seek(0)
-    return send_file(myio, as_attachment=True, attachment_filename="rescue_data.xlsx")
+def get_blob_service_client(blob_path):
+    blob_service_client = BlobServiceClient.from_connection_string(os.getenv("CONNECTION"))
+    return blob_service_client.get_blob_client(container='ocean-viking', blob=blob_path)
+
+
+def upload_data(data_path='rescue-data.xlsx', blob_path='website-data/rescue-data.xlsx'):
+    blob_client = get_blob_service_client(blob_path)
+    with open(data_path, "rb") as data:
+        blob_client.upload_blob(data, overwrite=True)
+
+
+@app.route("/download6", methods=['GET', 'POST'])
+def download_data(data_path='rescue-data-download.xlsx', blob_path='website-data/rescue-data.xlsx'):
+    if os.path.exists(data_path):
+        os.remove(data_path)
+    blob_client = get_blob_service_client(blob_path)
+    with open(data_path, "wb") as download_file:
+        download_file.write(blob_client.download_blob().readall())
+    return send_file('rescue-data-download.xlsx', as_attachment=True, attachment_filename="rescue-data.xlsx")
 
 
 @app.route("/")
