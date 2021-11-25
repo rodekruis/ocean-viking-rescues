@@ -11,7 +11,7 @@ load_dotenv()  # take environment variables from .env
 logged_in = False
 
 
-def process_data(df_form, rescue_number=None):
+def filter_rescue_number(df_form, rescue_number=None):
     rescues = df_form['rescue_number'].unique().tolist()
     if not rescues:
         rescues = [1]
@@ -25,6 +25,13 @@ def process_data(df_form, rescue_number=None):
         os.remove('rescue-data-upload.xlsx')
     df_form.to_excel('rescue-data-upload.xlsx')
     upload_data('rescue-data-upload.xlsx', 'website-data/rescue-data.xlsx')
+
+    return rescues, df_form
+
+
+def process_data(df_form, rescue_number=None):
+
+    rescues, df_form = filter_rescue_number(df_form, rescue_number)
 
     total = len(df_form)
     males = len(df_form[df_form['gender'] == 'male'])
