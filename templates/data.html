@@ -19,7 +19,7 @@
             <select name='rescue'>
               {% for rescue in rescues %}
                 {% if selected_rescue == rescue %}
-                    <option value="{{ rescue }}" selected='selected'>{{ rescue }}</option>
+                    <option value="{{ rescue }}" selected>{{ rescue }}</option>
                 {% else %}
                      <option value="{{ rescue }}" >{{ rescue }}</option>
                 {% endif %}
@@ -36,6 +36,8 @@
           <div class="block my-3">
             <label for="" class="label">people rescued {{ total }} ({{ males }} male, {{ females }} female),</label>
             <label for="" class="label">of which {{ minors }} minors ({{ minors_male }} male, {{ minors_female }} female)</label>
+            <label for="" class="label">{{ pregnant }} pregnant women ({{ pregnant_women }} adult, {{ pregnant_minors }} minors)</label>
+            <label for="" class="label">{{ disabled }} persons with disabilities</label>
           </div>
         </div>
       </div>
@@ -76,14 +78,14 @@
         </div>
       </div>
     </div>
-    <div class="container p-5 has-text-centered">
-      <div class="columns is-centered">
-        <div class="column is-one-quarter-desktop">
-          <div class="block my-3">
-            <a class="button is-link" href="/download6">download data (.xlsx)</a>
-          </div>
-        </div>
-      </div>
-    </div>
+<!--    <div class="container p-5 has-text-centered">-->
+<!--      <div class="columns is-centered">-->
+<!--        <div class="column is-one-quarter-desktop">-->
+<!--          <div class="block my-3">-->
+<!--            <a class="button is-link" href="/download6">download data (.xlsx)</a>-->
+<!--          </div>-->
+<!--        </div>-->
+<!--      </div>-->
+<!--    </div>-->
 </body>
 </html>
