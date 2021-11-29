@@ -102,7 +102,7 @@ def get_data():
     return df_form
 
 
-@app.route("/data", methods=['GET', 'POST'])
+@app.route("/data", methods=['POST'])
 def default_page():
     if request.form['password'] == os.getenv("PASSWORD"):
         global logged_in
