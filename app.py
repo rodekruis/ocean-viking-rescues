@@ -12,59 +12,70 @@ load_dotenv()  # take environment variables from .env
 
 def process_data(df_form, rescue_number=None):
 
-    rescues = df_form['rescue_number'].unique().tolist()
+    if 'rescue_number' in df_form.columns:
+        rescues = df_form['rescue_number'].unique().tolist()
+    else:
+        rescues = []
     if not rescues:
         rescues = [1]
     if not rescue_number:
         rescue_number = max(rescues)
     rescues = [str(x) for x in rescues]
     rescues = ['total'] + rescues
-    if rescue_number != 'total':
-        df_form = df_form[df_form['rescue_number'] == rescue_number]
+    if 'rescue_number' in df_form.columns:
+        if rescue_number != 'total':
+            df_form = df_form[df_form['rescue_number'] == rescue_number]
+    else:
+        df_form = pd.DataFrame()
 
     total = len(df_form)
-    males = len(df_form[df_form['gender'] == 'male'])
-    females = len(df_form[df_form['gender'] == 'female'])
-    df_minors = df_form[(df_form['age'] != '18_50') & (df_form['age'] != '50p')]
-    df_adults = df_form[(df_form['age'] == '18_50') | (df_form['age'] == '50p')]
-
-    # minors
-    minors = len(df_minors)
-    minors_male = len(df_minors[df_minors['gender'] == 'male'])
-    minors_female = len(df_minors[df_minors['gender'] == 'female'])
-
-    # pregnant
+    males, females, minors, minors_male, minors_female = 0, 0, 0, 0, 0
     pregnant, pregnant_women, pregnant_minors = 0, 0, 0
-    if 'pregnant' in df_form.columns:
-        pregnant = len(df_form[df_form['pregnant'] == 'yes'])
-    if 'pregnant' in df_adults.columns:
-        pregnant_women = len(df_adults[df_adults['pregnant'] == 'yes'])
-    if 'pregnant' in df_minors.columns:
-        pregnant_minors = len(df_minors[df_minors['pregnant'] == 'yes'])
+    unacc_minors, unacc_minors_male, unacc_minors_female, unacc_pregnant_minors = 0, 0, 0, 0
+    unacc_women, unacc_pregnant_women = 0, 0
 
-    # unaccompanied minors
-    df_unacc_minors = df_minors[df_minors['accompanied'] == 'no']
-    if 'accompanied_by_who' in df_minors.columns:
-        df_unacc_minors = df_unacc_minors.append(df_minors[(df_minors['accompanied'] == 'yes') &
-                                                           (df_minors['accompanied_by_who'] != 'parent')],
-                                                 ignore_index=True)
-    unacc_minors = len(df_unacc_minors)
-    unacc_minors_male = len(df_unacc_minors[df_unacc_minors['gender'] == 'male'])
-    unacc_minors_female = len(df_unacc_minors[df_unacc_minors['gender'] == 'female'])
-    if 'pregnant' in df_unacc_minors.columns:
-        unacc_pregnant_minors = len(df_unacc_minors[(df_unacc_minors['gender'] == 'female') &
-                                                    (df_unacc_minors['pregnant'] == 'yes')])
-    else:
-        unacc_pregnant_minors = 0
+    if 'gender' in df_form.columns:
+        males = len(df_form[df_form['gender'] == 'male'])
+        females = len(df_form[df_form['gender'] == 'female'])
+        df_minors = df_form[(df_form['age'] != '18_50') & (df_form['age'] != '50p')]
+        df_adults = df_form[(df_form['age'] == '18_50') | (df_form['age'] == '50p')]
 
-    # unaccompanied women
-    df_women = df_adults[df_adults['gender'] == 'female']
-    df_unacc_women = df_women[df_women['accompanied'] == 'no']
-    unacc_women = len(df_unacc_women)
-    if 'pregnant' in df_unacc_women.columns:
-        unacc_pregnant_women = len(df_unacc_women[df_unacc_women['pregnant'] == 'yes'])
-    else:
-        unacc_pregnant_women = 0
+        # minors
+        minors = len(df_minors)
+        minors_male = len(df_minors[df_minors['gender'] == 'male'])
+        minors_female = len(df_minors[df_minors['gender'] == 'female'])
+
+        # pregnant
+        if 'pregnant' in df_form.columns:
+            pregnant = len(df_form[df_form['pregnant'] == 'yes'])
+        if 'pregnant' in df_adults.columns:
+            pregnant_women = len(df_adults[df_adults['pregnant'] == 'yes'])
+        if 'pregnant' in df_minors.columns:
+            pregnant_minors = len(df_minors[df_minors['pregnant'] == 'yes'])
+
+        # unaccompanied minors
+        df_unacc_minors = df_minors[df_minors['accompanied'] == 'no']
+        if 'accompanied_by_who' in df_minors.columns:
+            df_unacc_minors = df_unacc_minors.append(df_minors[(df_minors['accompanied'] == 'yes') &
+                                                               (df_minors['accompanied_by_who'] != 'parent')],
+                                                     ignore_index=True)
+        unacc_minors = len(df_unacc_minors)
+        unacc_minors_male = len(df_unacc_minors[df_unacc_minors['gender'] == 'male'])
+        unacc_minors_female = len(df_unacc_minors[df_unacc_minors['gender'] == 'female'])
+        if 'pregnant' in df_unacc_minors.columns:
+            unacc_pregnant_minors = len(df_unacc_minors[(df_unacc_minors['gender'] == 'female') &
+                                                        (df_unacc_minors['pregnant'] == 'yes')])
+        else:
+            unacc_pregnant_minors = 0
+
+        # unaccompanied women
+        df_women = df_adults[df_adults['gender'] == 'female']
+        df_unacc_women = df_women[df_women['accompanied'] == 'no']
+        unacc_women = len(df_unacc_women)
+        if 'pregnant' in df_unacc_women.columns:
+            unacc_pregnant_women = len(df_unacc_women[df_unacc_women['pregnant'] == 'yes'])
+        else:
+            unacc_pregnant_women = 0
 
     # disabled
     disabled = 0
@@ -72,20 +83,23 @@ def process_data(df_form, rescue_number=None):
         disabled = len(df_form[df_form['disabled'] == 'yes'])
 
     # age groups
-    age_value_counts = df_form['age'].value_counts().to_dict()
-    age_label_dict = {"u1": "Less than 1 year",
-                      "1_4": "1-4 years",
-                      "5_17": "5-17 years",
-                      "18_50": "18-50 years",
-                      "50p": "More than 50 years"}
     age_group_counts = OrderedDict()
-    for age_label, age_text in age_label_dict.items():
-        if age_label in age_value_counts.keys():
-            age_group_counts[age_text] = age_value_counts[age_label]
+    if 'age' in df_form.columns:
+        age_value_counts = df_form['age'].value_counts().to_dict()
+        age_label_dict = {"u1": "Less than 1 year",
+                          "1_4": "1-4 years",
+                          "5_17": "5-17 years",
+                          "18_50": "18-50 years",
+                          "50p": "More than 50 years"}
+        for age_label, age_text in age_label_dict.items():
+            if age_label in age_value_counts.keys():
+                age_group_counts[age_text] = age_value_counts[age_label]
 
     # nationalities
-    country_counts = df_form['country'].value_counts().to_dict()
-    country_counts = {k: v for k, v in sorted(country_counts.items(), key=lambda item: item[1], reverse=True)}
+    country_counts = {}
+    if 'country' in df_form.columns:
+        country_counts = df_form['country'].value_counts().to_dict()
+        country_counts = {k: v for k, v in sorted(country_counts.items(), key=lambda item: item[1], reverse=True)}
 
     return render_template('data.html',
                            total=total,
