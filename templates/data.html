@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="https://printjs-4de6.kxcdn.com/print.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="https://printjs-4de6.kxcdn.com/print.min.css">
   <meta charset="UTF-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,11 +10,11 @@
   <title>Ocean Viking Rescues</title>
 </head>
 <body>
-    <div class="container p-5 has-text-centered">
+    <div class="container p-0 has-text-centered">
       <div class="columns is-centered">
         <div class="column is-one-quarter-desktop">
           <div class="field my-5">
-            <label for="" class="label">rotation number 16</label>
+            <label for="" class="label">Rotation number 16</label>
           </div>
           <form action= "/dataupdate" method="POST">
             <label for="" class="label">select rescue number</label>
@@ -25,67 +27,117 @@
                 {% endif %}
               {% endfor %}
             </select>
-            <input type="submit" value="Submit" />
+            <input type="submit" value="select" />
           </form>
         </div>
       </div>
     </div>
-    <div class="container p-5 has-text-centered">
+    <div class="container p-0 has-text-centered">
       <div class="columns is-centered">
         <div class="column is-one-third-desktop">
-          <div class="block my-3">
-            <label for="" class="label">people rescued {{ total }} ({{ males }} male, {{ females }} female),</label>
-            <label for="" class="label">of which {{ minors }} minors ({{ minors_male }} male, {{ minors_female }} female)</label>
-            <label for="" class="label">{{ pregnant }} pregnant women ({{ pregnant_women }} adult, {{ pregnant_minors }} minors)</label>
-            <label for="" class="label">{{ disabled }} persons with disabilities</label>
+          <div class="block my-6">
+            <label for="" class="label" style="color:#EE3224">Total people rescued {{ total }} ({{ males }} male, {{ females }} female),</label>
+            <label for="" class="label">Total adults {{ total-minors }} ({{ males-minors_male }} male, {{ females-minors_female }} female),</label>
+            <label for="" class="label">Total minors {{ minors }} ({{ minors_male }} male, {{ minors_female }} female),</label>
+<!--            <label for="" class="label">{{ pregnant }} pregnant women ({{ pregnant_women }} adult, {{ pregnant_minors }} minors),</label>-->
+<!--            <label for="" class="label">{{ disabled }} persons with disabilities</label>-->
+          </div>
+<!--        </div>-->
+<!--      </div>-->
+<!--      <div class="columns is-centered">-->
+<!--        <div class="column is-one-third-desktop">-->
+
+<!--        </div>-->
+<!--      </div>-->
+<!--      <div class="columns is-centered">-->
+<!--        <div class="column is-one-third-desktop">-->
+          <div class="block my-6">
+              <label for="" class="label" style="color:#EE3224">Pregnant & single female {{ pregnant_women+pregnant_minors+unacc_women+unacc_minors_female }} </label>
+              <label for="" class="label">Total pregnant {{ pregnant_women+pregnant_minors }} ({{ pregnant_women }} adult, {{ pregnant_minors }} minor)</label>
+            <label for="" class="label">Total single female {{ unacc_women+unacc_minors_female }} ({{ unacc_women }} adult, {{ unacc_minors_female }} minor)</label>
+          </div>
+          <div class="block my-6">
+              <label for="" class="label" style="color:#EE3224">People with disabilities {{ disabled }} ({{ disabled_male }} male, {{ disabled_female }} female)</label>
+<!--              <label for="" class="label">of which {{ unacc_pregnant_minors }} pregnant</label>-->
           </div>
         </div>
-      </div>
-      <div class="columns is-centered">
+<!--      </div>-->
+<!--      <div class="columns is-centered">-->
         <div class="column is-one-third-desktop">
-          <div class="block my-3">
-              <label for="" class="label">unaccompanied minors {{ unacc_minors }} ({{ unacc_minors_male }} male, {{ unacc_minors_female }} female)</label>
-              <label for="" class="label">of which {{ unacc_pregnant_minors }} pregnant</label>
+          <div class="block my-6">
+              <label for="" class="label" style="color:#EE3224">Unaccompanied minors {{ unacc_minors }} ({{ unacc_minors_male }} male, {{ unacc_minors_female }} female)</label>
+              {% if minors > 0 and total > 0 %}
+                <label for="" class="label">{{ '%0.2f' % (100*unacc_minors/minors)|float }}% of total minors, {{ '%0.2f' % (100*unacc_minors/total)|float }}% of total</label>
+              {% endif %}
+<!--              {% for age_group, age_count in uac_age_value_counts.items() %}-->
+<!--                <label for="" class="label">{{ age_group }}: {{ age_count[0] }} ({{ age_count[1] }}%)</label>-->
+<!--              {% endfor %}-->
+            <label for="" class="label"></label>
           </div>
-        </div>
-      </div>
-      <div class="columns is-centered">
-        <div class="column is-one-third-desktop">
-          <div class="block my-3">
-              <label for="" class="label">unaccompanied adult women {{ unacc_women }} </label>
-              <label for="" class="label">of which {{ unacc_pregnant_women }} pregnant</label>
-          </div>
-        </div>
-      </div>
-      <div class="columns is-centered">
-        <div class="column is-one-quarter-desktop">
-          <div class="block my-3">
-            <label for="" class="label">age of pepople rescued:</label>
+          <div class="block my-6">
+            <label for="" class="label" style="color:#EE3224">Age of people rescued</label>
               {% for age_group, age_count in age_value_counts.items() %}
-                <label for="" class="label">{{ age_group }} : {{ age_count }}</label>
+                <label for="" class="label">{{ age_group }}: {{ age_count[0] }} ({{ '%0.2f' % (age_count[1])|float }}%)</label>
               {% endfor %}
           </div>
         </div>
-      </div>
-      <div class="columns is-centered">
-        <div class="column is-one-quarter-desktop">
-          <div class="block my-3">
-            <label for="" class="label">country of pepople rescued:</label>
+        <div class="column is-one-third-desktop">
+          <div class="block my-6">
+            <label for="" class="label" style="color:#EE3224">Country of people rescued</label>
               {% for country, country_count in country_counts.items() %}
-                <label for="" class="label">{{ country }} : {{ country_count }}</label>
+                <label for="" class="label">{{ country }}: {{ country_count[0] }} ({{ '%0.2f' % (country_count[1])|float }}%)</label>
               {% endfor %}
           </div>
         </div>
       </div>
     </div>
-<!--    <div class="container p-5 has-text-centered">-->
-<!--      <div class="columns is-centered">-->
-<!--        <div class="column is-one-quarter-desktop">-->
-<!--          <div class="block my-3">-->
-<!--            <a class="button is-link" href="/download6">download data (.xlsx)</a>-->
-<!--          </div>-->
-<!--        </div>-->
-<!--      </div>-->
-<!--    </div>-->
+    <div class="container p-3 has-text-centered">
+      <div class="columns is-centered">
+        <div class="column is-one-quarter-desktop">
+          <div class="block my-3">
+            <label for="" class="label" style="color:#EE3224">Send report</label>
+            <form action= "/sendreport" method="POST">
+            <div class="field my-3">
+              <label for="" class="label">Email</label>
+              <div class="control"><input class="input" type="text" name="email" /></div>
+            </div>
+            <label for="" class="label">Rescue number</label>
+            <select name='rescue'>
+              {% for rescue in rescues %}
+                {% if selected_rescue == rescue %}
+                    <option value="{{ rescue }}" selected>{{ rescue }}</option>
+                {% else %}
+                     <option value="{{ rescue }}" >{{ rescue }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            <input type="submit" value="Send report" />
+          </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="container p-3 has-text-centered">
+      <div class="columns is-centered">
+        <div class="column is-one-quarter-desktop">
+          <div class="block my-3">
+            <label for="" class="label" style="color:#EE3224">Download data</label>
+            <form action= "/downloaddata" method="POST">
+            <label for="" class="label">Rescue number</label>
+            <select name='rescue'>
+              {% for rescue in rescues %}
+                {% if selected_rescue == rescue %}
+                    <option value="{{ rescue }}" selected>{{ rescue }}</option>
+                {% else %}
+                     <option value="{{ rescue }}" >{{ rescue }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            <input type="submit" value="Download" />
+          </form>
+          </div>
+        </div>
+      </div>
+    </div>
 </body>
 </html>
