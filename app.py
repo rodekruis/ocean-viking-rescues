@@ -12,11 +12,18 @@ from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 from flask import Flask, render_template, request, send_file, make_response
 from datetime import date
+from googleapiclient.discovery import build
+from google.oauth2 import service_account
 app = Flask(__name__)
 load_dotenv()  # take environment variables from .env
 
 
 def process_data(df_form, rescue_number=None, return_data=False, report=False):
+
+    if 'rotation_no' in df_form.columns:
+        rotation_no = int(df_form['rotation_no'].unique()[0])
+    else:
+        rotation_no = 'unknown'
 
     if 'rescue_number' in df_form.columns:
         rescues = df_form['rescue_number'].unique().tolist()
@@ -35,10 +42,38 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         df_form = pd.DataFrame()
 
     columns_to_keep = ['rescue_number', 'age', 'gender', 'pregnant', 'accompanied', 'accompanied_by_who', 'country',
-                       'bracelet_number', '_submission_time']
+                       'bracelet_number', '_submission_time', 'rotation_no']
     for col in df_form.columns:
         if col not in columns_to_keep:
             df_form = df_form.drop(columns=[col])
+
+    # check if there have been medevacs
+    df_medevacs = get_data(os.getenv("ASSETMEDEVAC"))
+    medevacs = 0
+    if not df_medevacs.empty:
+        medevacs = len(df_medevacs)
+        for ix, row in df_medevacs.iterrows():
+            if f'bracelet_evacuee' in row.keys():
+                if not pd.isna(row['bracelet_evacuee']):
+                    df_form = df_form[df_form['bracelet_number'] != row['bracelet_evacuee']]
+            elif f'age_evacuee' in row.keys():
+                if not pd.isna(row['age_evacuee']):
+                    select = df_form[(df_form['age'] == row['age_evacuee']) & (df_form['gender'] == row['gender_evacuee'])].index
+                    if len(select) > 0:
+                        df_form = df_form.drop(select[0])
+            for company_number in [1, 2, 3]:
+                if f'bracelet_company_{company_number}' in df_medevacs.columns:
+                    if not pd.isna(row[f'bracelet_company_{company_number}']):
+                        medevacs += 1
+                        df_form = df_form[df_form['bracelet_number'] != row[f'bracelet_company_{company_number}']]
+                elif f'age_company_{company_number}' in df_medevacs.columns:
+                    if not pd.isna(row[f'age_company_{company_number}']):
+                        medevacs += 1
+                        select = df_form[
+                            (df_form['age'] == row[f'age_company_{company_number}']) & (df_form['gender'] == row[f'gender_company_{company_number}'])].index
+                        if len(select) > 0:
+                            df_form = df_form.drop(select[0])
+
 
     total = len(df_form)
     males, females, minors, minors_male, minors_female = 0, 0, 0, 0, 0
@@ -137,6 +172,7 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
     dt_ = today.strftime("%d-%m-%Y")
 
     return render_template(template,
+                           rotation_no=rotation_no,
                            total=total,
                            males=males,
                            females=females,
@@ -160,21 +196,55 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                            country_counts=country_counts,
                            rescues=rescues,
                            date=dt_,
+                           medevacs=medevacs,
                            selected_rescue=str(rescue_number))
 
 
-def get_data():
+def get_data(asset):
     # get data from kobo
     headers = {'Authorization': f'Token {os.getenv("TOKEN")}'}
     data_request = requests.get(
-        f'https://kobonew.ifrc.org/api/v2/assets/{os.getenv("ASSET")}/data.json',
+        f'https://kobonew.ifrc.org/api/v2/assets/{asset}/data.json',
         headers=headers)
     data = data_request.json()
     if 'results' in data.keys():
         df_form = pd.DataFrame(data['results'])
+        if df_form.empty:
+            return df_form
+        df_form['_submission_time'] = pd.to_datetime(df_form['_submission_time'])
+
+        # filter by rotation number
+        SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+        SAMPLE_SPREADSHEET_ID = '1L-d0lT2s7QjxlXbvYkcBWdSPFkKsYEtD52J_H4VK8dA'
+        SAMPLE_RANGE_NAME = 'Rotations!A:C'
+        sa_file = 'google-service-account-hspatsea-ocean-viking.json'
+        creds = service_account.Credentials.from_service_account_file(sa_file, scopes=SCOPES)
+        service = build('sheets', 'v4', credentials=creds)
+        # Call the Sheets API
+        sheet = service.spreadsheets()
+        result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                                    range=SAMPLE_RANGE_NAME).execute()
+        values = result.get('values', [])
+        df = pd.DataFrame.from_records(values[1:], columns=values[0])
+        df['Start date'] = pd.to_datetime(df['Start date'], dayfirst=True)
+        df['End date'] = pd.to_datetime(df['End date'], dayfirst=True)
+        df['Rotation No'] = df['Rotation No'].astype(int)
+        rotation_no = max(df['Rotation No'])+1
+        start_date_ = date.today()
+        end_date_ = date.today()
+        for ix, row in df.iterrows():
+            if row['Start date'] <= pd.to_datetime(date.today()) <= row['End date']:
+                rotation_no = row['Rotation No']
+                start_date_ = row['Start date']
+                end_date_ = row['End date']
+
+        df_form = df_form[(df_form['_submission_time'] >= start_date_) & (df_form['_submission_time'] <= end_date_)]
+        if not df_form.empty:
+            df_form['rotation_no'] = rotation_no
+        else:
+            df_form = df_form.append(pd.Series({'rotation_no': rotation_no}), ignore_index=True)
     else:
-        df_form = pd.DataFrame(columns=['rescue_number', 'gender', 'age', 'accompanied',
-                                        'accompanied_by_who', 'pregnant', 'country'])
+        df_form = pd.DataFrame()
     return df_form
 
 
@@ -189,7 +259,7 @@ def html_to_pdf(html, filename):
 @app.route("/data", methods=['POST'])
 def default_page():
     if request.form['password'] == os.getenv("PASSWORD"):
-        df_form = get_data()
+        df_form = get_data(os.getenv("ASSET"))
         return process_data(df_form)
     else:
         return render_template('home.html')
@@ -207,7 +277,7 @@ def send_report():
     d1 = today.strftime("%d-%m-%Y")
     filename = f"report--{d1}.html"
 
-    df_form = get_data()
+    df_form = get_data(os.getenv("ASSET"))
     report_html = process_data(df_form, rescue_number, report=True)
     # html_to_pdf(report_html, filename)
     with open(filename, "w") as file:
@@ -263,7 +333,7 @@ def update_rescue():
         rescue_number = request.form['rescue']
     else:
         rescue_number = None
-    df_form = get_data()
+    df_form = get_data(os.getenv("ASSET"))
     return process_data(df_form, rescue_number)
 
 
@@ -284,7 +354,7 @@ def download_data():
         rescue_number = request.form['rescue']
     else:
         rescue_number = None
-    df_form = get_data()
+    df_form = get_data(os.getenv("ASSET"))
     df_form = process_data(df_form, rescue_number, return_data=True)
     data_path = 'rescue_data.xlsx'
     if os.path.exists(data_path):
