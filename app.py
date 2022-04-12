@@ -20,11 +20,6 @@ load_dotenv()  # take environment variables from .env
 
 def process_data(df_form, rescue_number=None, return_data=False, report=False):
 
-    if 'rotation_no' in df_form.columns:
-        rotation_no = int(df_form['rotation_no'].unique()[0])
-    else:
-        rotation_no = 'unknown'
-
     if 'rescue_number' in df_form.columns:
         rescues = df_form['rescue_number'].unique().tolist()
     else:
@@ -42,13 +37,13 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         df_form = pd.DataFrame()
 
     columns_to_keep = ['rescue_number', 'age', 'gender', 'pregnant', 'accompanied', 'accompanied_by_who', 'country',
-                       'bracelet_number', '_submission_time', 'rotation_no']
+                       'bracelet_number', 'disabled', '_submission_time', 'rotation_no']
     for col in df_form.columns:
         if col not in columns_to_keep:
             df_form = df_form.drop(columns=[col])
 
     # check if there have been medevacs
-    df_medevacs = get_data(os.getenv("ASSETMEDEVAC"))
+    df_medevacs, rotation_no = get_data(os.getenv("ASSETMEDEVAC"))
     medevacs = 0
     if not df_medevacs.empty:
         medevacs = len(df_medevacs)
@@ -207,31 +202,33 @@ def get_data(asset):
         f'https://kobonew.ifrc.org/api/v2/assets/{asset}/data.json',
         headers=headers)
     data = data_request.json()
+
+    # get rotation info
+    SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
+    SAMPLE_SPREADSHEET_ID = '1L-d0lT2s7QjxlXbvYkcBWdSPFkKsYEtD52J_H4VK8dA'
+    SAMPLE_RANGE_NAME = 'Rotations!A:C'
+    sa_file = 'google-service-account-hspatsea-ocean-viking.json'
+    creds = service_account.Credentials.from_service_account_file(sa_file, scopes=SCOPES)
+    service = build('sheets', 'v4', credentials=creds)
+    # Call the Sheets API
+    sheet = service.spreadsheets()
+    result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
+                                range=SAMPLE_RANGE_NAME).execute()
+    values = result.get('values', [])
+    df = pd.DataFrame.from_records(values[1:], columns=values[0])
+    df['Start date'] = pd.to_datetime(df['Start date'], dayfirst=True)
+    df['End date'] = pd.to_datetime(df['End date'], dayfirst=True)
+    df['Rotation No'] = df['Rotation No'].astype(int)
+    rotation_no = max(df['Rotation No'])
+    start_date_ = date.today()
+    end_date_ = date.today()
+
     if 'results' in data.keys():
         df_form = pd.DataFrame(data['results'])
         if df_form.empty:
-            return df_form
+            return df_form, rotation_no
         df_form['_submission_time'] = pd.to_datetime(df_form['_submission_time'])
 
-        # filter by rotation number
-        SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-        SAMPLE_SPREADSHEET_ID = '1L-d0lT2s7QjxlXbvYkcBWdSPFkKsYEtD52J_H4VK8dA'
-        SAMPLE_RANGE_NAME = 'Rotations!A:C'
-        sa_file = 'google-service-account-hspatsea-ocean-viking.json'
-        creds = service_account.Credentials.from_service_account_file(sa_file, scopes=SCOPES)
-        service = build('sheets', 'v4', credentials=creds)
-        # Call the Sheets API
-        sheet = service.spreadsheets()
-        result = sheet.values().get(spreadsheetId=SAMPLE_SPREADSHEET_ID,
-                                    range=SAMPLE_RANGE_NAME).execute()
-        values = result.get('values', [])
-        df = pd.DataFrame.from_records(values[1:], columns=values[0])
-        df['Start date'] = pd.to_datetime(df['Start date'], dayfirst=True)
-        df['End date'] = pd.to_datetime(df['End date'], dayfirst=True)
-        df['Rotation No'] = df['Rotation No'].astype(int)
-        rotation_no = max(df['Rotation No'])+1
-        start_date_ = date.today()
-        end_date_ = date.today()
         for ix, row in df.iterrows():
             if row['Start date'] <= pd.to_datetime(date.today()) <= row['End date']:
                 rotation_no = row['Rotation No']
@@ -242,10 +239,10 @@ def get_data(asset):
         if not df_form.empty:
             df_form['rotation_no'] = rotation_no
         else:
-            df_form = df_form.append(pd.Series({'rotation_no': rotation_no}), ignore_index=True)
+            df_form = pd.DataFrame()
     else:
         df_form = pd.DataFrame()
-    return df_form
+    return df_form, rotation_no
 
 
 def html_to_pdf(html, filename):
@@ -259,7 +256,7 @@ def html_to_pdf(html, filename):
 @app.route("/data", methods=['POST'])
 def default_page():
     if request.form['password'] == os.getenv("PASSWORD"):
-        df_form = get_data(os.getenv("ASSET"))
+        df_form, rotation_no = get_data(os.getenv("ASSET"))
         return process_data(df_form)
     else:
         return render_template('home.html')
@@ -277,7 +274,7 @@ def send_report():
     d1 = today.strftime("%d-%m-%Y")
     filename = f"report--{d1}.html"
 
-    df_form = get_data(os.getenv("ASSET"))
+    df_form, rotation_no = get_data(os.getenv("ASSET"))
     report_html = process_data(df_form, rescue_number, report=True)
     # html_to_pdf(report_html, filename)
     with open(filename, "w") as file:
@@ -287,7 +284,7 @@ def send_report():
     smtp_server = "smtp.gmail.com"
     sender_email = "ocean.viking.rescues@gmail.com"  # Enter your address
     receiver_email = email  # Enter receiver address
-    password = os.getenv("PASSWORD")
+    password = os.getenv("GOOGLEAPPPASS")
 
     # Create a multipart message and set headers
     message = MIMEMultipart()
@@ -333,7 +330,7 @@ def update_rescue():
         rescue_number = request.form['rescue']
     else:
         rescue_number = None
-    df_form = get_data(os.getenv("ASSET"))
+    df_form, rotation_no = get_data(os.getenv("ASSET"))
     return process_data(df_form, rescue_number)
 
 
@@ -354,7 +351,7 @@ def download_data():
         rescue_number = request.form['rescue']
     else:
         rescue_number = None
-    df_form = get_data(os.getenv("ASSET"))
+    df_form, rotation_no = get_data(os.getenv("ASSET"))
     df_form = process_data(df_form, rescue_number, return_data=True)
     data_path = 'rescue_data.xlsx'
     if os.path.exists(data_path):
