@@ -1,21 +1,35 @@
 import requests
 import pandas as pd
 from collections import OrderedDict
-import smtplib, ssl, email
-from email import encoders
-from email.mime.base import MIMEBase
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
 import os
 import pdfkit
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
-from flask import Flask, render_template, request, send_file, make_response
+from flask import Flask, render_template, request, send_file
 from datetime import date
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
 app = Flask(__name__)
 load_dotenv()  # take environment variables from .env
+
+
+def get_blob_service_client(container, blob_path):
+    blob_service_client = BlobServiceClient.from_connection_string(os.getenv("CONNECTION"))
+    return blob_service_client.get_blob_client(container=container, blob=blob_path)
+
+
+def upload_blob(container, blob_path, data_path):
+    # upload data to azure blob storage
+    blob_client = get_blob_service_client(container, blob_path)
+    with open(data_path, "rb") as data:
+        blob_client.upload_blob(data, overwrite=True)
+
+
+def download_blob(container, blob_path, data_path):
+    # download data from azure blob storage
+    blob_client = get_blob_service_client(container, blob_path)
+    with open(data_path, "wb") as download_file:
+        download_file.write(blob_client.download_blob().readall())
 
 
 def process_data(df_form, rescue_number=None, return_data=False, report=False):
@@ -42,12 +56,20 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         if col not in columns_to_keep:
             df_form = df_form.drop(columns=[col])
 
+    total_rescued, total_rescued_dict = len(df_form), {}
+    if rescue_number == 'total':
+        if 'rescue_number' in df_form.columns:
+            for rn in df_form.rescue_number.unique():
+                df_form_rn = df_form[df_form['rescue_number'] == rn]
+                total_rescued_dict[rn] = len(df_form_rn)
+
     # check if there have been medevacs
     df_medevacs, rotation_no = get_data(os.getenv("ASSETMEDEVAC"))
-    medevacs = 0
+    medevacs, medevacs_meta = 0, []
     if not df_medevacs.empty:
         medevacs = len(df_medevacs)
         for ix, row in df_medevacs.iterrows():
+            medevacs_meta_no = 1
             if f'bracelet_evacuee' in row.keys():
                 if not pd.isna(row['bracelet_evacuee']):
                     df_form = df_form[df_form['bracelet_number'] != row['bracelet_evacuee']]
@@ -56,21 +78,35 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                     select = df_form[(df_form['age'] == row['age_evacuee']) & (df_form['gender'] == row['gender_evacuee'])].index
                     if len(select) > 0:
                         df_form = df_form.drop(select[0])
+            if '_submission_time' in row.keys():
+                medevacs_meta_date = pd.to_datetime(row['_submission_time'])
+            else:
+                medevacs_meta_date = "unknown"
             for company_number in [1, 2, 3]:
                 if f'bracelet_company_{company_number}' in df_medevacs.columns:
                     if not pd.isna(row[f'bracelet_company_{company_number}']):
                         medevacs += 1
+                        medevacs_meta_no += 1
                         df_form = df_form[df_form['bracelet_number'] != row[f'bracelet_company_{company_number}']]
                 elif f'age_company_{company_number}' in df_medevacs.columns:
                     if not pd.isna(row[f'age_company_{company_number}']):
                         medevacs += 1
+                        medevacs_meta_no += 1
                         select = df_form[
                             (df_form['age'] == row[f'age_company_{company_number}']) & (df_form['gender'] == row[f'gender_company_{company_number}'])].index
                         if len(select) > 0:
                             df_form = df_form.drop(select[0])
+            medevacs_meta.append({'medevac_n': ix,
+                                  'medevac_n_evacuees': medevacs_meta_no,
+                                  'medevac_date': medevacs_meta_date})
 
+    total, total_dict = len(df_form), {}
+    if rescue_number == 'total':
+        if 'rescue_number' in df_form.columns:
+            for rn in df_form.rescue_number.unique():
+                df_form_rn = df_form[df_form['rescue_number'] == rn]
+                total_dict[rn] = len(df_form_rn)
 
-    total = len(df_form)
     males, females, minors, minors_male, minors_female = 0, 0, 0, 0, 0
     pregnant, pregnant_women, pregnant_minors = 0, 0, 0
     unacc_minors, unacc_minors_male, unacc_minors_female, unacc_pregnant_minors = 0, 0, 0, 0
@@ -103,6 +139,8 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         df_unacc_minors = df_minors[df_minors['accompanied'] == 'no']
         if 'accompanied_by_who' in df_minors.columns:
             df_unacc_minors = df_unacc_minors.append(df_minors[(df_minors['accompanied'] == 'yes') &
+                                                               (df_minors['accompanied_by_who'] != 'spouse') &
+                                                               (df_minors['accompanied_by_who'] != 'sibling') &
                                                                (df_minors['accompanied_by_who'] != 'parent')],
                                                      ignore_index=True)
         unacc_minors = len(df_unacc_minors)
@@ -117,6 +155,9 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         # unaccompanied women
         df_women = df_adults[df_adults['gender'] == 'female']
         df_unacc_women = df_women[df_women['accompanied'] == 'no']
+        df_unacc_women = df_unacc_women.append(df_women[(df_women['accompanied'] == 'yes') &
+                                                        (df_women['accompanied_by_who'] == 'child')],
+                                               ignore_index=True)
         unacc_women = len(df_unacc_women)
         if 'pregnant' in df_unacc_women.columns:
             unacc_pregnant_women = len(df_unacc_women[df_unacc_women['pregnant'] == 'yes'])
@@ -162,11 +203,43 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
     if return_data:
         return df_form
 
-    template = 'data.html' if not report else 'report.html'
-    today = date.today()
-    dt_ = today.strftime("%d-%m-%Y")
+    template = 'data.html'
+    dt_ = date.today().strftime("%d-%m-%Y")
 
-    return render_template(template,
+    report_dict = {
+        "rotation_no": rotation_no,
+        "total_rescued": total_rescued,
+        "total_rescued_dict": total_rescued_dict,
+        "total": total,
+        "total_dict": total_dict,
+        "males": males,
+        "females": females,
+        "minors": minors,
+        "minors_male": minors_male,
+        "minors_female": minors_female,
+        "pregnant": pregnant,
+        "pregnant_women": pregnant_women,
+        "pregnant_minors": pregnant_minors,
+        "unacc_minors": unacc_minors,
+        "unacc_minors_male": unacc_minors_male,
+        "unacc_minors_female": unacc_minors_female,
+        "unacc_pregnant_minors": unacc_pregnant_minors,
+        "unacc_women": unacc_women,
+        "unacc_pregnant_women": unacc_pregnant_women,
+        "disabled": disabled,
+        "disabled_male": disabled_male,
+        "disabled_female": disabled_female,
+        "age_value_counts": age_group_counts,
+        "uac_age_value_counts": uac_age_group_counts,
+        "country_counts": country_counts,
+        "rescues": rescues,
+        "date": dt_,
+        "medevacs": medevacs,
+        "medevacs_meta": medevacs_meta,
+        "selected_rescue": str(rescue_number)
+    }
+
+    template = render_template(template,
                            rotation_no=rotation_no,
                            total=total,
                            males=males,
@@ -193,6 +266,11 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                            date=dt_,
                            medevacs=medevacs,
                            selected_rescue=str(rescue_number))
+
+    if report:
+        return template, report_dict
+    else:
+        return template
 
 
 def get_data(asset):
@@ -269,59 +347,114 @@ def send_report():
         email = request.form['email']
     else:
         rescue_number = None
+        email = ""
 
-    today = date.today()
-    d1 = today.strftime("%d-%m-%Y")
-    filename = f"report--{d1}.html"
-
+    dataname = "report_data"
     df_form, rotation_no = get_data(os.getenv("ASSET"))
-    report_html = process_data(df_form, rescue_number, report=True)
-    # html_to_pdf(report_html, filename)
-    with open(filename, "w") as file:
-        file.write(report_html)
+    if 'rescue_number' in df_form.columns:
+        rescues = df_form['rescue_number'].unique().tolist()
+    else:
+        rescues = []
+    df_rescue_dates = df_form.groupby('rescue_number')["_submission_time"].min()
+    report_template, report_data = process_data(df_form, rescue_number, report=True)
 
-    port = 465  # For SSL
-    smtp_server = "smtp.gmail.com"
-    sender_email = "ocean.viking.rescues@gmail.com"  # Enter your address
-    receiver_email = email  # Enter receiver address
-    password = os.getenv("GOOGLEAPPPASS")
+    filename = dataname+"_general.csv"
+    df_metadata = pd.DataFrame()
+    if rescue_number == "total":
+        for norescue, rescue in enumerate(rescues):
+            df_metadata.at[norescue, "email"] = email
+            df_metadata.at[norescue, "rescue_number"] = rescue
+            df_metadata.at[norescue, "people_rescued"] = report_data["total_rescued_dict"][rescue]
+            df_metadata.at[norescue, "people_onboard"] = report_data["total_dict"][rescue]
+            df_metadata.at[norescue, "date"] = df_rescue_dates.loc[rescue]
+            df_metadata.at[norescue, "medevac"] = report_data["medevacs"]
+    else:
+        df_metadata.at[rescue_number, "email"] = email
+        df_metadata.at[rescue_number, "rescue_number"] = rescue_number
+        df_metadata.at[rescue_number, "people_rescued"] = report_data["total_rescued"]
+        df_metadata.at[rescue_number, "people_onboard"] = report_data["total"]
+        df_metadata.at[rescue_number, "date"] = df_rescue_dates.loc[rescue_number]
+        df_metadata.at[rescue_number, "medevac"] = report_data["medevacs"]
+    df_metadata.to_csv(filename)
+    upload_blob("reporting", filename, filename)
 
-    # Create a multipart message and set headers
-    message = MIMEMultipart()
-    message["From"] = sender_email
-    message["To"] = receiver_email
-    message["Subject"] = "Ocean Viking Rescue Report"
-    message["Bcc"] = receiver_email  # Recommended for mass emails
-    rescue_number_text = "total rescued on board"
-    if rescue_number != "total":
-        rescue_number_text = f"rescue number {rescue_number}"
-    body = f"""\
-    Dear Sir/Madam,\n
-    this is a message from the rescue vessel "Ocean Viking".\n
-    Please find attached a report of the {rescue_number_text}."""
-    message.attach(MIMEText(body, "plain"))
+    filename = dataname + "_medevacs.csv"
+    df_medevac = pd.DataFrame()
+    for medevac_meta in report_data["medevacs_meta"]:
+        df_medevac.at[medevac_meta["medevac_n"], "medevac_n"] = medevac_meta["medevac_n"]
+        df_medevac.at[medevac_meta["medevac_n"], "medevac_n_evacuees"] = medevac_meta["medevac_n_evacuees"]
+        df_medevac.at[medevac_meta["medevac_n"], "medevac_date"] = medevac_meta["medevac_date"]
+    df_medevac.to_csv(filename)
+    upload_blob("reporting", filename, filename)
 
-    with open(filename, "rb") as attachment:
-        # Add file as application/octet-stream
-        # Email client can usually download this automatically as attachment
-        part = MIMEBase("application", "octet-stream")
-        part.set_payload(attachment.read())
-    # Encode file in ASCII characters to send by email
-    encoders.encode_base64(part)
-    # Add header as key/value pair to attachment part
-    part.add_header(
-        "Content-Disposition",
-        f"attachment; filename= {filename}",
+    filename = dataname+"_peopleonboard.csv"
+    df_peopleonboard = pd.DataFrame()
+    df_peopleonboard.at["Adults", "Males"] = report_data["males"]-report_data["minors_male"]
+    df_peopleonboard.at["Adults", "Females"] = report_data["females"]-report_data["minors_female"]
+    df_peopleonboard.at["Adults", "Total"] = report_data["total"]-report_data["minors"]
+    df_peopleonboard.at["Adults", "Percentage"] = (report_data["total"] - report_data["minors"]) / report_data["total"]
+    df_peopleonboard.at["Accompanied minors", "Males"] = report_data["minors_male"]-report_data["unacc_minors_male"]
+    df_peopleonboard.at["Accompanied minors", "Females"] = report_data["minors_female"]-report_data["unacc_minors_female"]
+    df_peopleonboard.at["Accompanied minors", "Total"] = report_data["minors"]-report_data["unacc_minors"]
+    df_peopleonboard.at["Accompanied minors", "Percentage"] = (report_data["minors"]-report_data["unacc_minors"]) / \
+                                                              report_data["total"]
+    df_peopleonboard.at["Unaccompanied minors", "Males"] = report_data["unacc_minors_male"]
+    df_peopleonboard.at["Unaccompanied minors", "Females"] = report_data["unacc_minors_female"]
+    df_peopleonboard.at["Unaccompanied minors", "Total"] = report_data["unacc_minors"]
+    df_peopleonboard.at["Unaccompanied minors", "Percentage"] = report_data["unacc_minors"] / report_data["total"]
+    df_peopleonboard.at["TOTAL", "Males"] = report_data["males"]
+    df_peopleonboard.at["TOTAL", "Females"] = report_data["females"]
+    df_peopleonboard.at["TOTAL", "Total"] = report_data["total"]
+    df_peopleonboard.to_csv(filename)
+    upload_blob("reporting", filename, filename)
+
+    filename = dataname+"_nationalities.csv"
+    df_nationalities = pd.DataFrame()
+    df_nationalities.drop(df_nationalities.index, inplace=True)
+    for nationality, count in report_data["country_counts"].items():
+        df_nationalities.at[nationality.title(), "Total"] = count[0]
+        df_nationalities.at[nationality.title(), "Percentage"] = count[1]/100.
+    df_nationalities.to_csv(filename)
+    upload_blob("reporting", filename, filename)
+
+    filename = dataname+"_age.csv"
+    df_age = pd.DataFrame()
+    df_age.drop(df_age.index, inplace=True)
+    for age_group, age_count in report_data["age_value_counts"].items():
+        df_age.at[age_group, "Total"] = age_count[0]
+        df_age.at[age_group, "Percentage"] = age_count[1]/100.
+    df_age.to_csv(filename)
+    upload_blob("reporting", filename, filename)
+
+    filename = dataname + "_disabilities.csv"
+    df_disabilities = pd.DataFrame()
+    df_disabilities.at["all", "Males"] = report_data["disabled_male"]
+    df_disabilities.at["all", "Females"] = report_data["disabled_female"]
+    df_disabilities.at["all", "Total"] = report_data["disabled"]
+    df_disabilities.to_csv(filename)
+    upload_blob("reporting", filename, filename)
+
+    filename = dataname + "_pregnant.csv"
+    df_pregnant = pd.DataFrame()
+    df_pregnant.at["Pregnant", "Adults"] = report_data["pregnant_women"]
+    df_pregnant.at["Pregnant", "Minors"] = report_data["pregnant_minors"]
+    df_pregnant.at["Pregnant", "Total"] = report_data["pregnant"]
+    df_pregnant.at["Single females", "Adults"] = report_data["unacc_women"]
+    df_pregnant.at["Single females", "Minors"] = report_data["unacc_minors_female"]
+    df_pregnant.at["Single females", "Total"] = report_data["unacc_women"]+report_data["unacc_minors_female"]
+    df_pregnant.at["TOTAL", "Adults"] = report_data["pregnant_women"]+report_data["unacc_women"]
+    df_pregnant.at["TOTAL", "Minors"] = report_data["pregnant_minors"]+report_data["unacc_minors_female"]
+    df_pregnant.at["TOTAL", "Total"] = report_data["pregnant"]+report_data["unacc_women"]+report_data["unacc_minors_female"]
+    df_pregnant.to_csv(filename)
+    upload_blob("reporting", filename, filename)
+
+    requests.post(
+        url=os.getenv("LOGICAPPTRIGGER"),
+        json={"email": email},
+        headers={'Content-type': 'application/json'}
     )
-    # Add attachment to message and convert message to string
-    message.attach(part)
 
-    context = ssl.create_default_context()
-    with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
-        server.login(sender_email, password)
-        server.sendmail(sender_email, receiver_email, message.as_string())
-
-    return process_data(df_form, rescue_number)
+    return report_template
 
 
 @app.route("/dataupdate", methods=['POST'])
@@ -332,17 +465,6 @@ def update_rescue():
         rescue_number = None
     df_form, rotation_no = get_data(os.getenv("ASSET"))
     return process_data(df_form, rescue_number)
-
-
-def get_blob_service_client(blob_path):
-    blob_service_client = BlobServiceClient.from_connection_string(os.getenv("CONNECTION"))
-    return blob_service_client.get_blob_client(container='ocean-viking', blob=blob_path)
-
-
-def upload_data(data_path, blob_path):
-    blob_client = get_blob_service_client(blob_path)
-    with open(data_path, "rb") as data:
-        blob_client.upload_blob(data, overwrite=True)
 
 
 @app.route("/downloaddata", methods=['POST'])
