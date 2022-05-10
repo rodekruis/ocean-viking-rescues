@@ -9,6 +9,7 @@ from flask import Flask, render_template, request, send_file
 from datetime import date
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
+
 app = Flask(__name__)
 load_dotenv()  # take environment variables from .env
 
@@ -33,7 +34,6 @@ def download_blob(container, blob_path, data_path):
 
 
 def process_data(df_form, rescue_number=None, return_data=False, report=False):
-
     if 'rescue_number' in df_form.columns:
         rescues = df_form['rescue_number'].unique().tolist()
     else:
@@ -50,8 +50,9 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
     else:
         df_form = pd.DataFrame()
 
-    columns_to_keep = ['rescue_number', 'age', 'gender', 'pregnant', 'accompanied', 'accompanied_by_who', 'country',
-                       'bracelet_number', 'disabled', '_submission_time', 'rotation_no']
+    columns_to_keep = ['rescue_number', 'age', 'gender', 'pregnant', 'accompanied', 'accompanied_by_who',
+                       'accompanied_by_who_adult', 'country', 'bracelet_number', 'disabled', '_submission_time',
+                       'rotation_no']
     for col in df_form.columns:
         if col not in columns_to_keep:
             df_form = df_form.drop(columns=[col])
@@ -75,7 +76,8 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                     df_form = df_form[df_form['bracelet_number'] != row['bracelet_evacuee']]
             elif f'age_evacuee' in row.keys():
                 if not pd.isna(row['age_evacuee']):
-                    select = df_form[(df_form['age'] == row['age_evacuee']) & (df_form['gender'] == row['gender_evacuee'])].index
+                    select = df_form[
+                        (df_form['age'] == row['age_evacuee']) & (df_form['gender'] == row['gender_evacuee'])].index
                     if len(select) > 0:
                         df_form = df_form.drop(select[0])
             if '_submission_time' in row.keys():
@@ -93,13 +95,15 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                         medevacs += 1
                         medevacs_meta_no += 1
                         select = df_form[
-                            (df_form['age'] == row[f'age_company_{company_number}']) & (df_form['gender'] == row[f'gender_company_{company_number}'])].index
+                            (df_form['age'] == row[f'age_company_{company_number}']) & (
+                                    df_form['gender'] == row[f'gender_company_{company_number}'])].index
                         if len(select) > 0:
                             df_form = df_form.drop(select[0])
             medevacs_meta.append({'medevac_n': ix,
                                   'medevac_n_evacuees': medevacs_meta_no,
                                   'medevac_date': medevacs_meta_date})
 
+    # calculate total
     total, total_dict = len(df_form), {}
     if rescue_number == 'total':
         if 'rescue_number' in df_form.columns:
@@ -107,9 +111,11 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                 df_form_rn = df_form[df_form['rescue_number'] == rn]
                 total_dict[rn] = len(df_form_rn)
 
+    # calculate all the rest
     males, females, minors, minors_male, minors_female = 0, 0, 0, 0, 0
     pregnant, pregnant_women, pregnant_minors = 0, 0, 0
     unacc_minors, unacc_minors_male, unacc_minors_female, unacc_pregnant_minors = 0, 0, 0, 0
+    separated_minors, separated_minors_male, separated_minors_female = 0, 0, 0
     unacc_women, unacc_pregnant_women = 0, 0
     disabled, disabled_male, disabled_female = 0, 0, 0
     age_group_counts = OrderedDict()
@@ -127,30 +133,39 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         minors_male = len(df_minors[df_minors['gender'] == 'male'])
         minors_female = len(df_minors[df_minors['gender'] == 'female'])
 
-        # pregnant
+        # unaccompanied minors
+        df_unacc_minors = df_minors[df_minors['accompanied'] == 'no']
+        if 'accompanied_by_who' in df_minors.columns:
+            df_unacc_minors = df_unacc_minors.append(df_minors[(df_minors['accompanied'] == 'yes') &
+                                                               (df_minors['accompanied_by_who_adult'] == 'no')],
+                                                     ignore_index=True)
+        unacc_minors = len(df_unacc_minors)
+        unacc_minors_male = len(df_unacc_minors[df_unacc_minors['gender'] == 'male'])
+        unacc_minors_female = len(df_unacc_minors[df_unacc_minors['gender'] == 'female'])
+
+        # unaccompanied pregnant minors
+        if 'pregnant' in df_unacc_minors.columns:
+            unacc_pregnant_minors = len(df_unacc_minors[(df_unacc_minors['gender'] == 'female') &
+                                                        (df_unacc_minors['pregnant'] == 'yes')])
+        else:
+            unacc_pregnant_minors = 0
+
+        # separated minors
+        df_separated_minors = df_minors[(df_minors['accompanied'] == 'yes') &
+                                        (df_minors['accompanied_by_who_adult'] == 'yes') &
+                                        (df_minors['accompanied_by_who'] != 'sibling') &
+                                        (df_minors['accompanied_by_who'] != 'parent')]
+        separated_minors = len(df_separated_minors)
+        separated_minors_male = len(df_separated_minors[df_separated_minors['gender'] == 'male'])
+        separated_minors_female = len(df_separated_minors[df_separated_minors['gender'] == 'female'])
+
+        # pregnant women
         if 'pregnant' in df_form.columns:
             pregnant = len(df_form[df_form['pregnant'] == 'yes'])
         if 'pregnant' in df_adults.columns:
             pregnant_women = len(df_adults[df_adults['pregnant'] == 'yes'])
         if 'pregnant' in df_minors.columns:
             pregnant_minors = len(df_minors[df_minors['pregnant'] == 'yes'])
-
-        # unaccompanied minors
-        df_unacc_minors = df_minors[df_minors['accompanied'] == 'no']
-        if 'accompanied_by_who' in df_minors.columns:
-            df_unacc_minors = df_unacc_minors.append(df_minors[(df_minors['accompanied'] == 'yes') &
-                                                               (df_minors['accompanied_by_who'] != 'spouse') &
-                                                               (df_minors['accompanied_by_who'] != 'sibling') &
-                                                               (df_minors['accompanied_by_who'] != 'parent')],
-                                                     ignore_index=True)
-        unacc_minors = len(df_unacc_minors)
-        unacc_minors_male = len(df_unacc_minors[df_unacc_minors['gender'] == 'male'])
-        unacc_minors_female = len(df_unacc_minors[df_unacc_minors['gender'] == 'female'])
-        if 'pregnant' in df_unacc_minors.columns:
-            unacc_pregnant_minors = len(df_unacc_minors[(df_unacc_minors['gender'] == 'female') &
-                                                        (df_unacc_minors['pregnant'] == 'yes')])
-        else:
-            unacc_pregnant_minors = 0
 
         # unaccompanied women
         df_women = df_adults[df_adults['gender'] == 'female']
@@ -182,7 +197,7 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                               "50p": "More than 50 years"}
             for age_label, age_text in age_label_dict.items():
                 if age_label in age_value_counts.keys():
-                    age_group_counts[age_text] = [age_value_counts[age_label], 100.*age_value_counts[age_label]/tot]
+                    age_group_counts[age_text] = [age_value_counts[age_label], 100. * age_value_counts[age_label] / tot]
             age_value_counts = df_unacc_minors['age'].value_counts().to_dict()
             tot = sum(age_value_counts.values())
             age_label_dict = {"u1": "Less than 1 year",
@@ -190,15 +205,15 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                               "5_17": "5-17 years"}
             for age_label, age_text in age_label_dict.items():
                 if age_label in age_value_counts.keys():
-                    uac_age_group_counts[age_text] = [age_value_counts[age_label], 100. * age_value_counts[age_label] / tot]
-
-
+                    uac_age_group_counts[age_text] = [age_value_counts[age_label],
+                                                      100. * age_value_counts[age_label] / tot]
 
         # nationalities
         if 'country' in df_form.columns:
             country_counts = df_form['country'].value_counts().to_dict()
             tot = sum(country_counts.values())
-            country_counts = {k.replace('_', ' '): [v, 100.*v/tot] for k, v in sorted(country_counts.items(), key=lambda item: item[1], reverse=True)}
+            country_counts = {k.replace('_', ' '): [v, 100. * v / tot] for k, v in
+                              sorted(country_counts.items(), key=lambda item: item[1], reverse=True)}
 
     if return_data:
         return df_form
@@ -224,6 +239,9 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         "unacc_minors_male": unacc_minors_male,
         "unacc_minors_female": unacc_minors_female,
         "unacc_pregnant_minors": unacc_pregnant_minors,
+        "separated_minors": separated_minors,
+        "separated_minors_male": separated_minors_male,
+        "separated_minors_female": separated_minors_female,
         "unacc_women": unacc_women,
         "unacc_pregnant_women": unacc_pregnant_women,
         "disabled": disabled,
@@ -240,32 +258,35 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
     }
 
     template = render_template(template,
-                           rotation_no=rotation_no,
-                           total=total,
-                           males=males,
-                           females=females,
-                           minors=minors,
-                           minors_male=minors_male,
-                           minors_female=minors_female,
-                           pregnant=pregnant,
-                           pregnant_women=pregnant_women,
-                           pregnant_minors=pregnant_minors,
-                           unacc_minors=unacc_minors,
-                           unacc_minors_male=unacc_minors_male,
-                           unacc_minors_female=unacc_minors_female,
-                           unacc_pregnant_minors=unacc_pregnant_minors,
-                           unacc_women=unacc_women,
-                           unacc_pregnant_women=unacc_pregnant_women,
-                           disabled=disabled,
-                           disabled_male=disabled_male,
-                           disabled_female=disabled_female,
-                           age_value_counts=age_group_counts,
-                           uac_age_value_counts=uac_age_group_counts,
-                           country_counts=country_counts,
-                           rescues=rescues,
-                           date=dt_,
-                           medevacs=medevacs,
-                           selected_rescue=str(rescue_number))
+                               rotation_no=rotation_no,
+                               total=total,
+                               males=males,
+                               females=females,
+                               minors=minors,
+                               minors_male=minors_male,
+                               minors_female=minors_female,
+                               pregnant=pregnant,
+                               pregnant_women=pregnant_women,
+                               pregnant_minors=pregnant_minors,
+                               unacc_minors=unacc_minors,
+                               unacc_minors_male=unacc_minors_male,
+                               unacc_minors_female=unacc_minors_female,
+                               unacc_pregnant_minors=unacc_pregnant_minors,
+                               separated_minors=separated_minors,
+                               separated_minors_male=separated_minors_male,
+                               separated_minors_female=separated_minors_female,
+                               unacc_women=unacc_women,
+                               unacc_pregnant_women=unacc_pregnant_women,
+                               disabled=disabled,
+                               disabled_male=disabled_male,
+                               disabled_female=disabled_female,
+                               age_value_counts=age_group_counts,
+                               uac_age_value_counts=uac_age_group_counts,
+                               country_counts=country_counts,
+                               rescues=rescues,
+                               date=dt_,
+                               medevacs=medevacs,
+                               selected_rescue=str(rescue_number))
 
     if report:
         return template, report_dict
@@ -358,7 +379,7 @@ def send_report():
     df_rescue_dates = df_form.groupby('rescue_number')["_submission_time"].min()
     report_template, report_data = process_data(df_form, rescue_number, report=True)
 
-    filename = dataname+"_general.csv"
+    filename = dataname + "_general.csv"
     df_metadata = pd.DataFrame()
     if rescue_number == "total":
         for norescue, rescue in enumerate(rescues):
@@ -387,42 +408,54 @@ def send_report():
     df_medevac.to_csv(filename)
     upload_blob("reporting", filename, filename)
 
-    filename = dataname+"_peopleonboard.csv"
+    filename = dataname + "_peopleonboard.csv"
     df_peopleonboard = pd.DataFrame()
-    df_peopleonboard.at["Adults", "Males"] = report_data["males"]-report_data["minors_male"]
-    df_peopleonboard.at["Adults", "Females"] = report_data["females"]-report_data["minors_female"]
-    df_peopleonboard.at["Adults", "Total"] = report_data["total"]-report_data["minors"]
+    df_peopleonboard.at["Adults", "Males"] = report_data["males"] - report_data["minors_male"]
+    df_peopleonboard.at["Adults", "Females"] = report_data["females"] - report_data["minors_female"]
+    df_peopleonboard.at["Adults", "Total"] = report_data["total"] - report_data["minors"]
     df_peopleonboard.at["Adults", "Percentage"] = (report_data["total"] - report_data["minors"]) / report_data["total"]
-    df_peopleonboard.at["Accompanied minors", "Males"] = report_data["minors_male"]-report_data["unacc_minors_male"]
-    df_peopleonboard.at["Accompanied minors", "Females"] = report_data["minors_female"]-report_data["unacc_minors_female"]
-    df_peopleonboard.at["Accompanied minors", "Total"] = report_data["minors"]-report_data["unacc_minors"]
-    df_peopleonboard.at["Accompanied minors", "Percentage"] = (report_data["minors"]-report_data["unacc_minors"]) / \
+    df_peopleonboard.at["Accompanied minors", "Males"] = report_data["minors_male"] - \
+                                                         report_data["unacc_minors_male"] - \
+                                                         report_data["separated_minors_male"]
+    df_peopleonboard.at["Accompanied minors", "Females"] = report_data["minors_female"] - \
+                                                         report_data["unacc_minors_female"] - \
+                                                         report_data["separated_minors_female"]
+    df_peopleonboard.at["Accompanied minors", "Total"] = report_data["minors"] - \
+                                                         report_data["unacc_minors"] - \
+                                                         report_data["separated_minors"]
+    df_peopleonboard.at["Accompanied minors", "Percentage"] = (report_data["minors"] - \
+                                                         report_data["unacc_minors"] - \
+                                                         report_data["separated_minors"]) / \
                                                               report_data["total"]
     df_peopleonboard.at["Unaccompanied minors", "Males"] = report_data["unacc_minors_male"]
     df_peopleonboard.at["Unaccompanied minors", "Females"] = report_data["unacc_minors_female"]
     df_peopleonboard.at["Unaccompanied minors", "Total"] = report_data["unacc_minors"]
     df_peopleonboard.at["Unaccompanied minors", "Percentage"] = report_data["unacc_minors"] / report_data["total"]
+    df_peopleonboard.at["Separated minors", "Males"] = report_data["separated_minors_male"]
+    df_peopleonboard.at["Separated minors", "Females"] = report_data["separated_minors_female"]
+    df_peopleonboard.at["Separated minors", "Total"] = report_data["separated_minors"]
+    df_peopleonboard.at["Separated minors", "Percentage"] = report_data["separated_minors"] / report_data["total"]
     df_peopleonboard.at["TOTAL", "Males"] = report_data["males"]
     df_peopleonboard.at["TOTAL", "Females"] = report_data["females"]
     df_peopleonboard.at["TOTAL", "Total"] = report_data["total"]
     df_peopleonboard.to_csv(filename)
     upload_blob("reporting", filename, filename)
 
-    filename = dataname+"_nationalities.csv"
+    filename = dataname + "_nationalities.csv"
     df_nationalities = pd.DataFrame()
     df_nationalities.drop(df_nationalities.index, inplace=True)
     for nationality, count in report_data["country_counts"].items():
         df_nationalities.at[nationality.title(), "Total"] = count[0]
-        df_nationalities.at[nationality.title(), "Percentage"] = count[1]/100.
+        df_nationalities.at[nationality.title(), "Percentage"] = count[1] / 100.
     df_nationalities.to_csv(filename)
     upload_blob("reporting", filename, filename)
 
-    filename = dataname+"_age.csv"
+    filename = dataname + "_age.csv"
     df_age = pd.DataFrame()
     df_age.drop(df_age.index, inplace=True)
     for age_group, age_count in report_data["age_value_counts"].items():
         df_age.at[age_group, "Total"] = age_count[0]
-        df_age.at[age_group, "Percentage"] = age_count[1]/100.
+        df_age.at[age_group, "Percentage"] = age_count[1] / 100.
     df_age.to_csv(filename)
     upload_blob("reporting", filename, filename)
 
@@ -441,10 +474,11 @@ def send_report():
     df_pregnant.at["Pregnant", "Total"] = report_data["pregnant"]
     df_pregnant.at["Single females", "Adults"] = report_data["unacc_women"]
     df_pregnant.at["Single females", "Minors"] = report_data["unacc_minors_female"]
-    df_pregnant.at["Single females", "Total"] = report_data["unacc_women"]+report_data["unacc_minors_female"]
-    df_pregnant.at["TOTAL", "Adults"] = report_data["pregnant_women"]+report_data["unacc_women"]
-    df_pregnant.at["TOTAL", "Minors"] = report_data["pregnant_minors"]+report_data["unacc_minors_female"]
-    df_pregnant.at["TOTAL", "Total"] = report_data["pregnant"]+report_data["unacc_women"]+report_data["unacc_minors_female"]
+    df_pregnant.at["Single females", "Total"] = report_data["unacc_women"] + report_data["unacc_minors_female"]
+    df_pregnant.at["TOTAL", "Adults"] = report_data["pregnant_women"] + report_data["unacc_women"]
+    df_pregnant.at["TOTAL", "Minors"] = report_data["pregnant_minors"] + report_data["unacc_minors_female"]
+    df_pregnant.at["TOTAL", "Total"] = report_data["pregnant"] + report_data["unacc_women"] + report_data[
+        "unacc_minors_female"]
     df_pregnant.to_csv(filename)
     upload_blob("reporting", filename, filename)
 
@@ -495,4 +529,3 @@ def download_data():
 @app.route("/")
 def login_page():
     return render_template('home.html')
-
