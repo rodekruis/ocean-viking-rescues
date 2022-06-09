@@ -68,15 +68,10 @@
               <label for="" class="label" style="color:#EE3224">Medically evacuated (incl. family) {{ medevacs }} </label>
           </div>
           <div class="block my-6">
-              <label for="" class="label" style="color:#EE3224">Unaccompanied* minors {{ unacc_minors }} ({{ unacc_minors_male }} male, {{ unacc_minors_female }} female)</label>
+              <label for="" class="label" style="color:#EE3224">Unaccompanied minors {{ unacc_minors }} ({{ unacc_minors_male }} male, {{ unacc_minors_female }} female)</label>
               {% if minors > 0 and total > 0 %}
                 <label for="" class="label">{{ '%0.2f' % (100*unacc_minors/minors)|float }}% of total minors, {{ '%0.2f' % (100*unacc_minors/total)|float }}% of total</label>
               {% endif %}
-              <label for="" class="label" style="color:#EE3224">Separated** minors {{ separated_minors }} ({{ separated_minors_male }} male, {{ separated_minors_female }} female)</label>
-              {% if minors > 0 and total > 0 %}
-                <label for="" class="label">{{ '%0.2f' % (100*separated_minors/minors)|float }}% of total minors, {{ '%0.2f' % (100*separated_minors/total)|float }}% of total</label>
-              {% endif %}
-              <label for="" class="label"></label>
           </div>
           <div class="block my-6">
             <label for="" class="label" style="color:#EE3224">Age of people rescued</label>
@@ -92,16 +87,6 @@
                 <label for="" class="label">{{ country }}: {{ country_count[0] }} ({{ '%0.2f' % (country_count[1])|float }}%)</label>
               {% endfor %}
           </div>
-        </div>
-      </div>
-    </div>
-    <div class="container p-3 has-text-centered">
-      <div class="columns is-centered">
-        <div class="column is-half-desktop">
-          <body>
-          <p><small>*Unaccompanied minor: alone or accompanied by another minor</small></p>
-          <p><small>**Separated minor: accompanied by any adult relative who is not parent nor sibling</small></p>
-          </body>
         </div>
       </div>
     </div>

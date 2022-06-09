@@ -115,7 +115,6 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
     males, females, minors, minors_male, minors_female = 0, 0, 0, 0, 0
     pregnant, pregnant_women, pregnant_minors = 0, 0, 0
     unacc_minors, unacc_minors_male, unacc_minors_female, unacc_pregnant_minors = 0, 0, 0, 0
-    separated_minors, separated_minors_male, separated_minors_female = 0, 0, 0
     unacc_women, unacc_pregnant_women = 0, 0
     disabled, disabled_male, disabled_female = 0, 0, 0
     age_group_counts = OrderedDict()
@@ -135,7 +134,7 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
 
         # unaccompanied minors
         df_unacc_minors = df_minors[df_minors['accompanied'] == 'no']
-        if 'accompanied_by_who' in df_minors.columns:
+        if 'accompanied_by_who' in df_minors.columns and 'accompanied_by_who_adult' in df_minors.columns:
             df_unacc_minors = df_unacc_minors.append(df_minors[(df_minors['accompanied'] == 'yes') &
                                                                (df_minors['accompanied_by_who_adult'] == 'no')],
                                                      ignore_index=True)
@@ -149,15 +148,6 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                                                         (df_unacc_minors['pregnant'] == 'yes')])
         else:
             unacc_pregnant_minors = 0
-
-        # separated minors
-        df_separated_minors = df_minors[(df_minors['accompanied'] == 'yes') &
-                                        (df_minors['accompanied_by_who_adult'] == 'yes') &
-                                        (df_minors['accompanied_by_who'] != 'sibling') &
-                                        (df_minors['accompanied_by_who'] != 'parent')]
-        separated_minors = len(df_separated_minors)
-        separated_minors_male = len(df_separated_minors[df_separated_minors['gender'] == 'male'])
-        separated_minors_female = len(df_separated_minors[df_separated_minors['gender'] == 'female'])
 
         # pregnant women
         if 'pregnant' in df_form.columns:
@@ -239,9 +229,6 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         "unacc_minors_male": unacc_minors_male,
         "unacc_minors_female": unacc_minors_female,
         "unacc_pregnant_minors": unacc_pregnant_minors,
-        "separated_minors": separated_minors,
-        "separated_minors_male": separated_minors_male,
-        "separated_minors_female": separated_minors_female,
         "unacc_women": unacc_women,
         "unacc_pregnant_women": unacc_pregnant_women,
         "disabled": disabled,
@@ -272,9 +259,6 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                                unacc_minors_male=unacc_minors_male,
                                unacc_minors_female=unacc_minors_female,
                                unacc_pregnant_minors=unacc_pregnant_minors,
-                               separated_minors=separated_minors,
-                               separated_minors_male=separated_minors_male,
-                               separated_minors_female=separated_minors_female,
                                unacc_women=unacc_women,
                                unacc_pregnant_women=unacc_pregnant_women,
                                disabled=disabled,
@@ -317,7 +301,7 @@ def get_data(asset):
     df = pd.DataFrame.from_records(values[1:], columns=values[0])
     df['Start date'] = pd.to_datetime(df['Start date'], dayfirst=True)
     df['End date'] = pd.to_datetime(df['End date'], dayfirst=True)
-    df['Rotation No'] = df['Rotation No'].astype(int)
+    df['Rotation No'] = df['Rotation No'].astype(float).round(0).astype(int)
     rotation_no = max(df['Rotation No'])
     start_date_ = date.today()
     end_date_ = date.today()
@@ -415,26 +399,18 @@ def send_report():
     df_peopleonboard.at["Adults", "Total"] = report_data["total"] - report_data["minors"]
     df_peopleonboard.at["Adults", "Percentage"] = (report_data["total"] - report_data["minors"]) / report_data["total"]
     df_peopleonboard.at["Accompanied minors", "Males"] = report_data["minors_male"] - \
-                                                         report_data["unacc_minors_male"] - \
-                                                         report_data["separated_minors_male"]
+                                                         report_data["unacc_minors_male"]
     df_peopleonboard.at["Accompanied minors", "Females"] = report_data["minors_female"] - \
-                                                         report_data["unacc_minors_female"] - \
-                                                         report_data["separated_minors_female"]
+                                                         report_data["unacc_minors_female"]
     df_peopleonboard.at["Accompanied minors", "Total"] = report_data["minors"] - \
-                                                         report_data["unacc_minors"] - \
-                                                         report_data["separated_minors"]
+                                                         report_data["unacc_minors"]
     df_peopleonboard.at["Accompanied minors", "Percentage"] = (report_data["minors"] - \
-                                                         report_data["unacc_minors"] - \
-                                                         report_data["separated_minors"]) / \
+                                                         report_data["unacc_minors"]) / \
                                                               report_data["total"]
     df_peopleonboard.at["Unaccompanied minors", "Males"] = report_data["unacc_minors_male"]
     df_peopleonboard.at["Unaccompanied minors", "Females"] = report_data["unacc_minors_female"]
     df_peopleonboard.at["Unaccompanied minors", "Total"] = report_data["unacc_minors"]
     df_peopleonboard.at["Unaccompanied minors", "Percentage"] = report_data["unacc_minors"] / report_data["total"]
-    df_peopleonboard.at["Separated minors", "Males"] = report_data["separated_minors_male"]
-    df_peopleonboard.at["Separated minors", "Females"] = report_data["separated_minors_female"]
-    df_peopleonboard.at["Separated minors", "Total"] = report_data["separated_minors"]
-    df_peopleonboard.at["Separated minors", "Percentage"] = report_data["separated_minors"] / report_data["total"]
     df_peopleonboard.at["TOTAL", "Males"] = report_data["males"]
     df_peopleonboard.at["TOTAL", "Females"] = report_data["females"]
     df_peopleonboard.at["TOTAL", "Total"] = report_data["total"]
