@@ -301,7 +301,7 @@ def get_data(asset):
     df = pd.DataFrame.from_records(values[1:], columns=values[0])
     df['Start date'] = pd.to_datetime(df['Start date'], dayfirst=True)
     df['End date'] = pd.to_datetime(df['End date'], dayfirst=True)
-    df['Rotation No'] = df['Rotation No'].astype(float).round(0).astype(int)
+    df['Rotation No'] = df['Rotation No'].astype(float)
     rotation_no = max(df['Rotation No'])
     start_date_ = date.today()
     end_date_ = date.today()
