@@ -3,6 +3,7 @@ import pandas as pd
 from collections import OrderedDict
 import os
 import pdfkit
+import numpy as np
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
 from flask import Flask, render_template, request, send_file
@@ -323,6 +324,14 @@ def get_data(asset):
             df_form['rotation_no'] = rotation_no
         else:
             df_form = pd.DataFrame()
+
+        # Get rescue number if more than 7 rescues
+        if 'specify_rescue_number' in df_form.columns:
+            df_form['rescue_number'] = np.where(
+                df_form['rescue_number'] == '>7',
+                df_form['specify_rescue_number'],
+                df_form['rescue_number']
+            )
     else:
         df_form = pd.DataFrame()
     return df_form, rotation_no
