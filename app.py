@@ -52,7 +52,7 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         df_form = pd.DataFrame()
 
     columns_to_keep = ['rescue_number', 'age', 'gender', 'pregnant', 'accompanied', 'accompanied_by_who',
-                       'accompanied_by_who_adult', 'country', 'bracelet_number', 'disabled', '_submission_time',
+                       'accompanied_by_who_adult', 'country', 'country_other', 'bracelet_number', 'disabled', '_submission_time',
                        'rotation_no']
     for col in df_form.columns:
         if col not in columns_to_keep:
@@ -200,6 +200,14 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                                                       100. * age_value_counts[age_label] / tot]
 
         # nationalities
+        if 'country_other' in df_form.columns:
+            df_form['country'] = np.where(
+                df_form['country'] == 'other',
+                df_form['country_other'].str.lower(),
+                df_form['country']
+            )
+            df_form = df_form.drop(columns=['country_other'])
+
         if 'country' in df_form.columns:
             country_counts = df_form['country'].value_counts().to_dict()
             tot = sum(country_counts.values())
