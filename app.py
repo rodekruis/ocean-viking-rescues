@@ -2,7 +2,6 @@ import requests
 import pandas as pd
 from collections import OrderedDict
 import os
-import pdfkit
 import numpy as np
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
@@ -136,9 +135,10 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         # unaccompanied minors
         df_unacc_minors = df_minors[df_minors['accompanied'] == 'no']
         if 'accompanied_by_who' in df_minors.columns and 'accompanied_by_who_adult' in df_minors.columns:
-            df_unacc_minors = df_unacc_minors.append(df_minors[(df_minors['accompanied'] == 'yes') &
-                                                               (df_minors['accompanied_by_who_adult'] == 'no')],
-                                                     ignore_index=True)
+            df_unacc_minors = pd.concat([
+                df_unacc_minors,
+                df_minors[(df_minors['accompanied'] == 'yes') & (df_minors['accompanied_by_who_adult'] == 'no')]
+            ])
         unacc_minors = len(df_unacc_minors)
         unacc_minors_male = len(df_unacc_minors[df_unacc_minors['gender'] == 'male'])
         unacc_minors_female = len(df_unacc_minors[df_unacc_minors['gender'] == 'female'])
@@ -161,14 +161,21 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         # unaccompanied women
         df_women = df_adults[df_adults['gender'] == 'female']
         df_unacc_women = df_women[df_women['accompanied'] == 'no']
-        df_unacc_women = df_unacc_women.append(df_women[(df_women['accompanied'] == 'yes') &
-                                                        (df_women['accompanied_by_who'] == 'child')],
-                                               ignore_index=True)
+        df_unacc_women = pd.concat([
+            df_unacc_women,
+            df_women[(df_women['accompanied'] == 'yes') & (df_women['accompanied_by_who'] == 'child')]
+        ])
         unacc_women = len(df_unacc_women)
         if 'pregnant' in df_unacc_women.columns:
             unacc_pregnant_women = len(df_unacc_women[df_unacc_women['pregnant'] == 'yes'])
         else:
             unacc_pregnant_women = 0
+
+        # total single or pregnant
+        single_or_pregnant_women = len(df_form[(df_form['pregnant'] == 'yes') |
+                                               ((df_form['gender'] == 'female') & (df_form['accompanied'] == 'no')) |
+                                               ((df_form['gender'] == 'female') & (df_form['accompanied'] == 'yes') & (df_form['accompanied_by_who'] == 'child'))
+                                               ])
 
         # disabled
         if 'disabled' in df_form.columns:
@@ -270,6 +277,7 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                                unacc_pregnant_minors=unacc_pregnant_minors,
                                unacc_women=unacc_women,
                                unacc_pregnant_women=unacc_pregnant_women,
+                               single_or_pregnant_women=single_or_pregnant_women,
                                disabled=disabled,
                                disabled_male=disabled_male,
                                disabled_female=disabled_female,
@@ -343,14 +351,6 @@ def get_data(asset):
     else:
         df_form = pd.DataFrame()
     return df_form, rotation_no
-
-
-def html_to_pdf(html, filename):
-    try:
-        pdfkit.from_string(html, filename)
-    except:
-        config = pdfkit.configuration(wkhtmltopdf=r'C:\Program Files\wkhtmltopdf\bin\wkhtmltopdf.exe')
-        pdfkit.from_string(html, filename, configuration=config)
 
 
 @app.route("/data", methods=['POST'])
