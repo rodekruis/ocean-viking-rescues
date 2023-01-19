@@ -116,6 +116,7 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
     pregnant, pregnant_women, pregnant_minors = 0, 0, 0
     unacc_minors, unacc_minors_male, unacc_minors_female, unacc_pregnant_minors = 0, 0, 0, 0
     unacc_women, unacc_pregnant_women = 0, 0
+    single_or_pregnant_women = 0
     disabled, disabled_male, disabled_female = 0, 0, 0
     age_group_counts = OrderedDict()
     uac_age_group_counts = OrderedDict()
@@ -172,10 +173,12 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
             unacc_pregnant_women = 0
 
         # total single or pregnant
-        single_or_pregnant_women = len(df_form[(df_form['pregnant'] == 'yes') |
-                                               ((df_form['gender'] == 'female') & (df_form['accompanied'] == 'no')) |
-                                               ((df_form['gender'] == 'female') & (df_form['accompanied'] == 'yes') & (df_form['accompanied_by_who'] == 'child'))
-                                               ])
+        if 'pregnant' in df_form.columns and 'gender' in df_form.columns and 'accompanied' in df_form.columns and 'accompanied_by_who' in df_form.columns and 'accompanied_by_who_adult' in df_form.columns:
+            single_or_pregnant_women = len(df_form[(df_form['pregnant'] == 'yes') |
+                                                   ((df_form['gender'] == 'female') & (df_form['accompanied'] == 'no')) |
+                                                   ((df_form['gender'] == 'female') & (df_form['accompanied'] == 'yes') & (df_form['accompanied_by_who'] == 'child')) |
+                                                   ((df_form['age'] != '18_50') & (df_form['age'] != '50p') & (df_form['gender'] == 'female') & (df_form['accompanied'] == 'yes') & (df_minors['accompanied_by_who_adult'] == 'no'))
+                                                   ])
 
         # disabled
         if 'disabled' in df_form.columns:
