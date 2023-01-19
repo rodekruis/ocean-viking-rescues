@@ -519,7 +519,7 @@ def download_data():
         )) + 1
         worksheet.set_column(idx, idx, max_len)  # set column width
     writer.save()
-    return send_file(data_path, as_attachment=True, attachment_filename="rescue-data.xlsx")
+    return send_file(data_path, as_attachment=True, download_name="rescue-data.xlsx")
 
 
 @app.route("/")
