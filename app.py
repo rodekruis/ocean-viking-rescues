@@ -193,7 +193,9 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
             tot = sum(age_value_counts.values())
             age_label_dict = {"u1": "Less than 1 year",
                               "1_4": "1-4 years",
+                              "5_13": "5-13 years",
                               "5_17": "5-17 years",
+                              "14_17": "14-17 years",
                               "18_50": "18-50 years",
                               "50p": "More than 50 years"}
             for age_label, age_text in age_label_dict.items():
@@ -203,7 +205,9 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
             tot = sum(age_value_counts.values())
             age_label_dict = {"u1": "Less than 1 year",
                               "1_4": "1-4 years",
-                              "5_17": "5-17 years"}
+                              "5_13": "5-13 years",
+                              "5_17": "5-17 years",
+                              "14_17": "14-17 years"}
             for age_label, age_text in age_label_dict.items():
                 if age_label in age_value_counts.keys():
                     uac_age_group_counts[age_text] = [age_value_counts[age_label],
