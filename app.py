@@ -526,6 +526,11 @@ def download_data():
     return send_file(data_path, as_attachment=True, download_name="rescue-data.xlsx")
 
 
+@app.route("/vessellocations")
+def vessel_locations():
+    return render_template('vessellocations.html')
+
+
 @app.route("/")
 def login_page():
     return render_template('home.html')
