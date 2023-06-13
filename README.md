@@ -1,5 +1,7 @@
 # ocean-viking-rescues
 
+Web app to show & share data on registrations of rescued people.
+
 Developed for the [rescue ship "Ocean Viking"](https://sosmediterranee.com/about-us/) in support of the [HSP@Sea operation](https://go.ifrc.org/emergencies/5425).
 
 ## Description
