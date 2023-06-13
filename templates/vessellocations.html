@@ -3,14 +3,20 @@
 <body>
 <div>
   <script type="text/javascript">
-            width='100%';
-            height='600';
-            border='1';
-            shownames='true';
-            maptype='0';
-            fleet='dkersbergen@rodekruis.nl';
-        </script>
-  <script type="text/javascript" src="//www.marinetraffic.com/js/embed.js"></script>
+    // Map appearance
+    var width="100%";         // width in pixels or percentage
+    var height="700";         // height in pixels
+    var latitude="38.183334";      // center latitude (decimal degrees)
+    var longitude="14.409943";     // center longitude (decimal degrees)
+    var zoom="6";             // initial zoom (between 3 and 18)
+    var names=true;          // always show ship names (defaults to false)
+
+    // Fleet tracking
+    var fleet="500916ced4a801d4faab5d1461e6ba3c"; // your personal Fleet key (displayed in your User Profile)
+    var fleet_name="Rescue Vessels"; // display particular fleet from your fleet list
+    var fleet_timespan="1440"; // maximum age in minutes of the displayed ship positions
+  </script>
+  <script type="text/javascript" src="https://www.vesselfinder.com/aismap.js"></script>
 </div>
 </body>
 </html>
