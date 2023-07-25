@@ -312,7 +312,7 @@ def get_data(asset):
 
     # get rotation info
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly']
-    SAMPLE_SPREADSHEET_ID = '1L-d0lT2s7QjxlXbvYkcBWdSPFkKsYEtD52J_H4VK8dA'
+    SAMPLE_SPREADSHEET_ID = os.getenv("GOOGLESHEETID")
     SAMPLE_RANGE_NAME = 'Rotations!A:C'
     sa_file = 'google-service-account-hspatsea-ocean-viking.json'
     creds = service_account.Credentials.from_service_account_file(sa_file, scopes=SCOPES)
