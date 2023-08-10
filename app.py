@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 from collections import OrderedDict
 import os
+import pytz
 import numpy as np
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
@@ -334,7 +335,7 @@ def get_data(asset):
         df_form = pd.DataFrame(data['results'])
         if df_form.empty:
             return df_form, rotation_no
-        df_form['_submission_time'] = pd.to_datetime(df_form['_submission_time'])
+        df_form['start'] = pd.to_datetime(df_form['start'], utc=True).dt.date
 
         for ix, row in df.iterrows():
             if row['Start date'] <= pd.to_datetime(date.today()) <= row['End date']:
@@ -342,7 +343,7 @@ def get_data(asset):
                 start_date_ = row['Start date']
                 end_date_ = row['End date']
 
-        df_form = df_form[(df_form['_submission_time'] >= start_date_) & (df_form['_submission_time'] <= end_date_)]
+        df_form = df_form[(df_form['start'] >= start_date_.date()) & (df_form['start'] <= end_date_.date())]
         if not df_form.empty:
             df_form['rotation_no'] = rotation_no
         else:
