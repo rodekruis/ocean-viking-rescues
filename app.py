@@ -103,6 +103,9 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
             medevacs_meta.append({'medevac_n': ix,
                                   'medevac_n_evacuees': medevacs_meta_no,
                                   'medevac_date': medevacs_meta_date})
+        
+    # remove first rescue
+    df_form = df_form[df_form['rescue_number'] != '1']
 
     # calculate total
     total, total_dict = len(df_form), {}
@@ -392,12 +395,13 @@ def send_report():
     df_metadata = pd.DataFrame()
     if rescue_number == "total":
         for norescue, rescue in enumerate(rescues):
-            df_metadata.at[norescue, "email"] = email
-            df_metadata.at[norescue, "rescue_number"] = rescue
-            df_metadata.at[norescue, "people_rescued"] = report_data["total_rescued_dict"][rescue]
-            df_metadata.at[norescue, "people_onboard"] = report_data["total_dict"][rescue]
-            df_metadata.at[norescue, "date"] = df_rescue_dates.loc[rescue]
-            df_metadata.at[norescue, "medevac"] = report_data["medevacs"]
+            if rescue in report_data["total_dict"].keys():
+                df_metadata.at[norescue, "email"] = email
+                df_metadata.at[norescue, "rescue_number"] = rescue
+                df_metadata.at[norescue, "people_rescued"] = report_data["total_rescued_dict"][rescue]
+                df_metadata.at[norescue, "people_onboard"] = report_data["total_dict"][rescue]
+                df_metadata.at[norescue, "date"] = df_rescue_dates.loc[rescue]
+                df_metadata.at[norescue, "medevac"] = report_data["medevacs"]
     else:
         df_metadata.at[rescue_number, "email"] = email
         df_metadata.at[rescue_number, "rescue_number"] = rescue_number
