@@ -68,42 +68,42 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
     # check if there have been medevacs
     df_medevacs, rotation_no = get_data(os.getenv("ASSETMEDEVAC"))
     medevacs, medevacs_meta = 0, []
-    if not df_medevacs.empty:
-        medevacs = len(df_medevacs)
-        for ix, row in df_medevacs.iterrows():
-            medevacs_meta_no = 1
-            if f'bracelet_evacuee' in row.keys():
-                if not pd.isna(row['bracelet_evacuee']):
-                    df_form = df_form[df_form['bracelet_number'] != row['bracelet_evacuee']]
-            elif f'age_evacuee' in row.keys():
-                if not pd.isna(row['age_evacuee']):
-                    select = df_form[
-                        (df_form['age'] == row['age_evacuee']) & (df_form['gender'] == row['gender_evacuee'])].index
-                    if len(select) > 0:
-                        df_form = df_form.drop(select[0])
-            if '_submission_time' in row.keys():
-                medevacs_meta_date = pd.to_datetime(row['_submission_time'])
-            else:
-                medevacs_meta_date = "unknown"
-            for company_number in [1, 2, 3]:
-                if f'bracelet_company_{company_number}' in df_medevacs.columns:
-                    if not pd.isna(row[f'bracelet_company_{company_number}']):
-                        medevacs += 1
-                        medevacs_meta_no += 1
-                        df_form = df_form[df_form['bracelet_number'] != row[f'bracelet_company_{company_number}']]
-                elif f'age_company_{company_number}' in df_medevacs.columns:
-                    if not pd.isna(row[f'age_company_{company_number}']):
-                        medevacs += 1
-                        medevacs_meta_no += 1
-                        select = df_form[
-                            (df_form['age'] == row[f'age_company_{company_number}']) & (
-                                    df_form['gender'] == row[f'gender_company_{company_number}'])].index
-                        if len(select) > 0:
-                            df_form = df_form.drop(select[0])
-            medevacs_meta.append({'medevac_n': ix,
-                                  'medevac_n_evacuees': medevacs_meta_no,
-                                  'medevac_date': medevacs_meta_date})
-        
+    # if not df_medevacs.empty:
+    #     medevacs = len(df_medevacs)
+    #     for ix, row in df_medevacs.iterrows():
+    #         medevacs_meta_no = 1
+    #         if f'bracelet_evacuee' in row.keys():
+    #             if not pd.isna(row['bracelet_evacuee']):
+    #                 df_form = df_form[df_form['bracelet_number'] != row['bracelet_evacuee']]
+    #         elif f'age_evacuee' in row.keys():
+    #             if not pd.isna(row['age_evacuee']):
+    #                 select = df_form[
+    #                     (df_form['age'] == row['age_evacuee']) & (df_form['gender'] == row['gender_evacuee'])].index
+    #                 if len(select) > 0:
+    #                     df_form = df_form.drop(select[0])
+    #         if '_submission_time' in row.keys():
+    #             medevacs_meta_date = pd.to_datetime(row['_submission_time'])
+    #         else:
+    #             medevacs_meta_date = "unknown"
+    #         for company_number in [1, 2, 3]:
+    #             if f'bracelet_company_{company_number}' in df_medevacs.columns:
+    #                 if not pd.isna(row[f'bracelet_company_{company_number}']):
+    #                     medevacs += 1
+    #                     medevacs_meta_no += 1
+    #                     df_form = df_form[df_form['bracelet_number'] != row[f'bracelet_company_{company_number}']]
+    #             elif f'age_company_{company_number}' in df_medevacs.columns:
+    #                 if not pd.isna(row[f'age_company_{company_number}']):
+    #                     medevacs += 1
+    #                     medevacs_meta_no += 1
+    #                     select = df_form[
+    #                         (df_form['age'] == row[f'age_company_{company_number}']) & (
+    #                                 df_form['gender'] == row[f'gender_company_{company_number}'])].index
+    #                     if len(select) > 0:
+    #                         df_form = df_form.drop(select[0])
+    #         medevacs_meta.append({'medevac_n': ix,
+    #                               'medevac_n_evacuees': medevacs_meta_no,
+    #                               'medevac_date': medevacs_meta_date})
+    
     # remove first rescue
     df_form = df_form[df_form['rescue_number'] != '1']
 
