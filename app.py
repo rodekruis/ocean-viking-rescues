@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 import pandas as pd
 from collections import OrderedDict
 import os
@@ -321,9 +323,13 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
 def get_data(asset):
     # get data from kobo
     headers = {'Authorization': f'Token {os.getenv("TOKEN")}'}
-    data_request = requests.get(
-        f'https://kobonew.ifrc.org/api/v2/assets/{asset}/data.json',
-        headers=headers)
+    session = requests.Session()
+    retry = Retry(connect=10, backoff_factor=0.5)
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    data_request = session.get(f'https://kobo.ifrc.org/api/v2/assets/{asset}/data.json',
+                               headers=headers)
     data = data_request.json()
 
     # get rotation info
