@@ -349,22 +349,22 @@ def get_data(asset):
     df['End date'] = pd.to_datetime(df['End date'], dayfirst=True)
     df['Rotation No'] = df['Rotation No'].astype(float)
     rotation_no = max(df['Rotation No'])
-    start_date_ = date.today()
-    end_date_ = date.today()
+    start_date_ = pd.to_datetime(date.today(), utc=True)
+    end_date_ = pd.to_datetime(date.today(), utc=True)
 
     if 'results' in data.keys():
         df_form = pd.DataFrame(data['results'])
         if df_form.empty:
             return df_form, rotation_no
-        df_form['start'] = pd.to_datetime(df_form['start'], utc=True).dt.date
 
         for ix, row in df.iterrows():
             if row['Start date'] <= pd.to_datetime(date.today()) <= row['End date']:
                 rotation_no = row['Rotation No']
-                start_date_ = row['Start date']
-                end_date_ = row['End date']
+                start_date_ = pd.to_datetime(row['Start date'], utc=True)
+                end_date_ = pd.to_datetime(row['End date'], utc=True)
 
-        df_form = df_form[(df_form['start'] >= start_date_.date()) & (df_form['start'] <= end_date_.date())]
+        df_form['start'] = pd.to_datetime(df_form['start'], utc=True)
+        df_form = df_form[(df_form['start'] >= start_date_) & (df_form['start'] <= end_date_)]
         if not df_form.empty:
             df_form['rotation_no'] = rotation_no
         else:
