@@ -8,7 +8,7 @@ import pytz
 import numpy as np
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
-from flask import Flask, render_template, request, send_file
+from flask import Flask, render_template, request, send_file, escape
 from datetime import date
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
@@ -380,7 +380,7 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
         "date": dt_,
         "medevacs": medevacs,
         "medevacs_meta": medevacs_meta,
-        "selected_rescue": str(rescue_number),
+        "selected_rescue": escape(str(rescue_number)),
     }
 
     template = render_template(
