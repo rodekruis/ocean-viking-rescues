@@ -4,7 +4,7 @@ from urllib3.util.retry import Retry
 import pandas as pd
 from collections import OrderedDict
 import os
-import pytz
+import json
 import numpy as np
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
@@ -437,8 +437,8 @@ def get_data(asset):
     SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
     SAMPLE_SPREADSHEET_ID = os.getenv("GOOGLESHEETID")
     SAMPLE_RANGE_NAME = "Rotations!A:C"
-    sa_file = "google-service-account-hspatsea-ocean-viking.json"
-    creds = service_account.Credentials.from_service_account_file(
+    sa_file = json.loads(os.getenv("GOOGLESERVICEACCUNT"))
+    creds = service_account.Credentials.from_service_account_info(
         sa_file, scopes=SCOPES
     )
     service = build("sheets", "v4", credentials=creds)
