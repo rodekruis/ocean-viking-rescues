@@ -8,7 +8,8 @@ import json
 import numpy as np
 from dotenv import load_dotenv
 from azure.storage.blob import BlobServiceClient
-from flask import Flask, render_template, request, send_file, escape
+from flask import Flask, render_template, request, send_file
+from markupsafe import escape
 from datetime import date
 from googleapiclient.discovery import build
 from google.oauth2 import service_account
