@@ -85,6 +85,12 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
     # check if there have been medevacs
     df_medevacs, rotation_no = get_data(os.getenv("ASSETMEDEVAC"))
     medevacs, medevacs_meta = 0, []
+    try:
+        df_medevacs = pd.merge(
+            df_medevacs, df_form, left_on="bracelet_evacuee", right_on="bracelet_number"
+        )
+    except:
+        pass
     if not df_medevacs.empty:
         medevacs = len(df_medevacs)
         for ix, row in df_medevacs.iterrows():
