@@ -1,0 +1,21 @@
+[Unit]
+Description=Ocean Viking Rescues Flask Application
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/ocean-viking-rescues
+Environment="PATH=/var/www/ocean-viking-rescues/venv/bin"
+EnvironmentFile=/var/www/ocean-viking-rescues/.env
+ExecStart=/var/www/ocean-viking-rescues/venv/bin/gunicorn --config gunicorn_config.py wsgi:app
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

@@ -40,6 +40,7 @@ def download_blob(container, blob_path, data_path):
 
 
 def process_data(df_form, rescue_number=None, return_data=False, report=False):
+
     if "rescue_number" in df_form.columns:
         rescues = df_form["rescue_number"].unique().tolist()
     else:
