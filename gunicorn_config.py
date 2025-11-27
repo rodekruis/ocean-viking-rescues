@@ -10,6 +10,7 @@ When using Nginx:
 - Can bind to 127.0.0.1:8000 (localhost only)
 - Nginx proxies to this
 """
+
 import multiprocessing
 import os
 
@@ -37,7 +38,7 @@ max_requests_jitter = 50
 
 # Logging
 accesslog = "-"  # Log to stdout
-errorlog = "-"   # Log to stderr
+errorlog = "-"  # Log to stderr
 loglevel = "info"
 
 # Process naming
