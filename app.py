@@ -143,28 +143,6 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
                 }
             )
 
-    # check if there have been disembarkations
-    df_disembark, rotation_no = get_data(os.getenv("ASSETDISEMBARK"))
-    for ix, row in df_disembark.iterrows():
-        if row["type"] == "rescue":
-            rescue_no = row["rescue_number"].split(" ")
-            df_form = df_form[~df_form["rescue_number"].isin(rescue_no)]
-        elif row["type"] == "bracelet":
-            if row["bracelet_range_or_numbers"] == "range":
-                df_form["bracelet_number_int"] = (
-                    df_form["bracelet_number"].fillna(0).astype(int)
-                )
-                df_form = df_form[
-                    ~df_form["bracelet_number_int"].between(
-                        int(row["range_start"]), int(row["range_end"]), inclusive="both"
-                    )
-                ]
-                df_form = df_form.drop(columns=["bracelet_number_int"])
-            elif row["bracelet_range_or_numbers"] == "numbers":
-                df_form = df_form[
-                    ~df_form["bracelet_number"].isin(row["numbers"].split(", "))
-                ]
-
     # calculate total
     total, total_dict = len(df_form), {}
     if rescue_number == "total":
@@ -437,7 +415,7 @@ def get_data(asset):
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     data_request = session.get(
-        f"https://kobo.ifrc.org/api/v2/assets/{asset}/data.json", headers=headers
+        f"https://eu.kobotoolbox.org/api/v2/assets/{asset}/data.json", headers=headers
     )
     data = data_request.json()
 
