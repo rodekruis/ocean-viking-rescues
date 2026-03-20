@@ -408,7 +408,6 @@ def process_data(df_form, rescue_number=None, return_data=False, report=False):
 
 def get_data(asset):
     # get data from kobo
-    print('get data')
     headers = {"Authorization": f'Token {os.getenv("TOKEN")}'}
     session = requests.Session()
     retry = Retry(connect=10, backoff_factor=0.5)
@@ -426,7 +425,6 @@ def get_data(asset):
         data = resp.json()
         if "results" in data.keys():
             all_data.extend(data["results"])
-            print(f"Fetched {len(data['results'])} records (start={start})")
             if not data["next"]:
                 break
             start += limit
@@ -455,7 +453,6 @@ def get_data(asset):
     rotation_no = max(df["Rotation No"])
     start_date_ = pd.to_datetime(date.today(), utc=True)
     end_date_ = pd.to_datetime(date.today(), utc=True)
-    print(rotation_no, start_date_, end_date_)
 
     df_form = pd.DataFrame(all_data)
     if df_form.empty:
